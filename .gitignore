@@ -7,6 +7,7 @@ backend/*.ipr
 backend/src/main/resources/application.properties
 
 # Frontend
+/node_modules
 frontend/node_modules/
 frontend/build/
 frontend/.env

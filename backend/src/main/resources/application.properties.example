@@ -1,0 +1,16 @@
+spring.application.name=Action.api
+jwt.secret=your-jwt-secret-here
+jwt.expiration=3600000
+spring.datasource.url=jdbc:postgresql://localhost:5432/auction_db
+spring.datasource.username=your_db_username
+spring.datasource.password=your_db_password
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+payfast.merchant-id=your_merchant_id
+payfast.merchant-key=your_merchant_key
+payfast.passphrase=your_passphrase
+payfast.sandbox=true
+payfast.return-url=http://localhost:3000/payment/success
+payfast.cancel-url=http://localhost:3000/payment/cancel
+payfast.notify-url=https://your-ngrok-url/api/payments/notify
+platform.commission=0.05

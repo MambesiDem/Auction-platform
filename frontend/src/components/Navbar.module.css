@@ -1,0 +1,57 @@
+.nav {
+    background: #ffffff;
+    border-bottom: 0.5px solid #e5e7eb;
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.brandDot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: #185FA5;
+}
+
+.brandName {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.userInfo {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.logoutBtn {
+    font-size: 12px;
+    padding: 5px 12px;
+    border: 0.5px solid #d1d5db;
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.logoutBtn:hover {
+    background-color: #f9fafb;
+}

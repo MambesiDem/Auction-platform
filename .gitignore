@@ -1,0 +1,24 @@
+# Backend
+backend/target/
+backend/.idea/
+backend/*.iml
+backend/*.iws
+backend/*.ipr
+backend/src/main/resources/application.properties
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

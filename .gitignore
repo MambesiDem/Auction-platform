@@ -4,7 +4,6 @@ backend/.idea/
 backend/*.iml
 backend/*.iws
 backend/*.ipr
-backend/src/main/resources/application.properties
 
 # Frontend
 /node_modules

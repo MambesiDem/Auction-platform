@@ -126,7 +126,6 @@ export default function SellerDashboard() {
     };
 
     const activeAuctions = auctions.filter(a => a.active);
-    const closedAuctions = auctions.filter(a => !a.active);
     const totalRevenue = payments
         .filter(p => p.status === 'RELEASED')
         .reduce((sum, p) => sum + p.sellerAmount, 0);

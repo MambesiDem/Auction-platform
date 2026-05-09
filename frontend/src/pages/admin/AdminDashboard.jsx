@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/Navbar';
 import StatCard from '../../components/StatCard';
 import styles from './AdminDashboard.module.css';
 
 export default function AdminDashboard() {
-    const { user } = useAuth();
     const [users, setUsers] = useState([]);
     const [auctions, setAuctions] = useState([]);
     const [deliveries, setDeliveries] = useState([]);
@@ -22,14 +20,16 @@ export default function AdminDashboard() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [usersRes, auctionsRes, deliveriesRes] = await Promise.all([
+            const [usersRes, auctionsRes, deliveriesRes, paymentsRes] = await Promise.all([
                 axiosInstance.get('/api/users'),
                 axiosInstance.get('/api/auctions'),
                 axiosInstance.get('/api/deliveries/pending'),
+                axiosInstance.get('/api/payments'),
             ]);
             setUsers(usersRes.data);
             setAuctions(auctionsRes.data);
             setDeliveries(deliveriesRes.data);
+            setPayments(paymentsRes.data);
         } catch (err) {
             console.error('Failed to load admin data', err);
         } finally {

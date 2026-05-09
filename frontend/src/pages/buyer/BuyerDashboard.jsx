@@ -44,7 +44,7 @@ export default function BuyerDashboard() {
         fetchData();
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('http://localhost:8081/ws-auction'),
+            webSocketFactory: () => new SockJS(`${process.env.REACT_APP_API_URL}/ws-auction`),
             onConnect: () => {
                 client.subscribe('/topic/bids', (message) => {
                     const bid = JSON.parse(message.body);
@@ -121,6 +121,7 @@ export default function BuyerDashboard() {
             setTimers(updated);
         }, 1000);
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [auctions]); 
 
     const getStatusStyle = (status) => {

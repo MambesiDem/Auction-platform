@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import Navbar from '../../components/Navbar';
-import styles from '../Auth.module.css';
 
 export default function PaymentPage() {
     const { auctionId } = useParams();

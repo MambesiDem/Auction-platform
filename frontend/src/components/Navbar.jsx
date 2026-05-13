@@ -15,7 +15,7 @@ export default function Navbar() {
         <nav className={styles.nav}>
             <div className={styles.brand}>
                 <div className={styles.brandDot} />
-                <span className={styles.brandName}>Mambesi Auctions</span>
+                <span className={styles.brandName}>Bidora</span>
             </div>
             <div className={styles.right}>
                 <span className={styles.userInfo}>

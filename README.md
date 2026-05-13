@@ -1,4 +1,4 @@
-# Mambesi Auctions
+# Bidora
 
 A live web-based auction platform connecting sellers, buyers, and drivers.
 Built with Spring Boot (backend) and React (frontend).

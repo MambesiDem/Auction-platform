@@ -65,6 +65,14 @@ export default function BuyerDashboard() {
         return () => client.deactivate();
     }, [fetchData]);
 
+    // Poll every 30 seconds as fallback for missed WebSocket events
+    useEffect(() => {
+        const poll = setInterval(() => {
+            fetchData();
+        }, 30000);
+        return () => clearInterval(poll);
+    }, [fetchData]);
+
     const handleCancelPayment = async (auctionId) => {
         if (!window.confirm('Cancel this order? You will be refunded.')) return;
         try {

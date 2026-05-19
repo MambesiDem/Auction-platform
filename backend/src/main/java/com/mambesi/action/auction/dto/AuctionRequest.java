@@ -17,11 +17,11 @@ public class AuctionRequest {
     @Positive(message = "Starting price must be greater than zero")
     private double startingPrice;
 
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     @NotNull(message = "Start time is required")
     private LocalDateTime startTime;
 
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     @NotNull(message = "End time is required")
     private LocalDateTime endTime;
 

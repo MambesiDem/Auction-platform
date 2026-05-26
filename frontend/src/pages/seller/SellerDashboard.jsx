@@ -93,8 +93,8 @@ export default function SellerDashboard() {
                 title,
                 description,
                 startingPrice: parseFloat(startingPrice),
-                startTime: new Date(startTime).toISOString(),
-                endTime: new Date(endTime).toISOString(),
+                startTime: startTime +':00',
+                endTime: endTime + ':00',
             });
             setForm(EMPTY_FORM);
             setFormSuccess('Auction created successfully.');

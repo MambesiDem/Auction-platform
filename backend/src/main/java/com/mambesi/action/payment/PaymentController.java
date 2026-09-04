@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -79,6 +80,41 @@ public class PaymentController {
     public PaymentResponse getPaymentStatus(@PathVariable UUID auctionId) {
         Payment payment = paymentService.getPaymentByAuctionId(auctionId);
         return paymentService.mapToResponse(payment);
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("OK");
+    }
+
+    @PostMapping("/notify")
+    public ResponseEntity<String> handleItn(
+            @RequestParam Map<String, String> itnData,
+            @RequestBody(required = false) String body) {
+
+        // Respond immediately so PayFast doesn't timeout
+        try {
+            // Handle both form params and request body
+            if (itnData.isEmpty() && body != null) {
+                Map<String, String> parsed = new HashMap<>();
+                for (String pair : body.split("&")) {
+                    String[] kv = pair.split("=", 2);
+                    if (kv.length == 2) {
+                        parsed.put(
+                                java.net.URLDecoder.decode(kv[0], "UTF-8"),
+                                java.net.URLDecoder.decode(kv[1], "UTF-8")
+                        );
+                    }
+                }
+                paymentService.handleItn(parsed);
+            } else {
+                paymentService.handleItn(itnData);
+            }
+        } catch (Exception e) {
+            System.out.println("ITN processing error: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok("OK");
     }
 
     private String getAuthenticatedEmail() {

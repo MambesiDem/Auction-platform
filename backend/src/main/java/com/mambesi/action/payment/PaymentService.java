@@ -198,23 +198,38 @@ public class PaymentService {
 
     // Handle PayFast ITN webhook — called by PayFast after payment
     public void handleItn(Map<String, String> itnData) {
+        System.out.println("ITN RECEIVED: " + itnData);
 
         String mPaymentId = itnData.get("m_payment_id");
         String paymentStatus = itnData.get("payment_status");
         String pfPaymentId = itnData.get("pf_payment_id");
 
-        Payment payment = paymentRepository.findById(UUID.fromString(mPaymentId))
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
+        System.out.println("m_payment_id: " + mPaymentId);
+        System.out.println("payment_status: " + paymentStatus);
 
-        if ("COMPLETE".equals(paymentStatus)) {
-            payment.setStatus(PaymentStatus.HELD);
-            payment.setPayfastPaymentId(pfPaymentId);
-            payment.setPaidAt(LocalDateTime.now());
-        } else {
-            payment.setStatus(PaymentStatus.FAILED);
+        if (mPaymentId == null || mPaymentId.isEmpty()) {
+            System.out.println("ITN ERROR: m_payment_id is null or empty");
+            return;
         }
 
-        paymentRepository.save(payment);
+        try {
+            Payment payment = paymentRepository.findById(UUID.fromString(mPaymentId))
+                    .orElseThrow(() -> new RuntimeException("Payment not found: " + mPaymentId));
+
+            if ("COMPLETE".equals(paymentStatus)) {
+                payment.setStatus(PaymentStatus.HELD);
+                payment.setPayfastPaymentId(pfPaymentId);
+                payment.setPaidAt(LocalDateTime.now());
+                System.out.println("Payment HELD for: " + mPaymentId);
+            } else {
+                payment.setStatus(PaymentStatus.FAILED);
+                System.out.println("Payment FAILED for: " + mPaymentId);
+            }
+
+            paymentRepository.save(payment);
+        } catch (Exception e) {
+            System.out.println("ITN EXCEPTION: " + e.getMessage());
+        }
     }
 
     // Called by scheduleRelease — not exposed to admin anymore

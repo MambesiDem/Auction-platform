@@ -281,14 +281,15 @@ export default function BuyerDashboard() {
 
                                         {payment && (
                                             <span className={`${styles.statusPill} ${
-                                                payment.status === 'HELD' ? styles.statusTransit :
+                                                payment.status === 'HELD'     ? styles.statusTransit :
                                                 payment.status === 'RELEASED' ? styles.statusDelivered :
                                                 payment.status === 'REFUNDED' ? styles.statusCancelled :
                                                 styles.statusPending
                                             }`}>
-                                                {payment.status === 'HELD' ? 'In escrow' :
-                                                payment.status === 'RELEASED' ? 'Paid out' :
-                                                payment.status === 'REFUNDED' ? 'Refunded' : 'Pending'}
+                                                {payment.status === 'PENDING'  ? 'Payment pending' :
+                                                payment.status === 'HELD'     ? 'Paid — in escrow' :
+                                                payment.status === 'RELEASED' ? 'Payment complete' :
+                                                payment.status === 'REFUNDED' ? 'Refunded' : ''}
                                             </span>
                                         )}
 
@@ -298,7 +299,6 @@ export default function BuyerDashboard() {
                                             </span>
                                         )}
 
-                                        {/* ✅ ADD THIS PART ONLY */}
                                         {payment && payment.status === 'HELD' && (
                                             (() => {
                                                 const canCancel = !delivery ||

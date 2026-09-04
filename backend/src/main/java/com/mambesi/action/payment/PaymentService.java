@@ -127,7 +127,7 @@ public class PaymentService {
         LinkedHashMap<String, String> params = new LinkedHashMap<>();
         params.put("merchant_id", merchantId);
         params.put("merchant_key", merchantKey);
-        params.put("return_url", returnUrl);
+        params.put("return_url", returnUrl + "?auction_id=" + payment.getAuctionItem().getId().toString());
         params.put("cancel_url", cancelUrl);
         params.put("notify_url", notifyUrl);
         params.put("name_first", buyer.getFullName().split(" ")[0]);
@@ -139,6 +139,7 @@ public class PaymentService {
         params.put("amount", String.format(java.util.Locale.US, "%.2f", payment.getTotalAmount()));
         params.put("item_name", auction.getTitle());
         params.put("item_description", "Auction win payment");
+
 
         String signature = generateSignature(params, passphrase);
         params.put("signature", signature);
@@ -231,7 +232,7 @@ public class PaymentService {
     }
 
 
-    // Buyer cancels — only allowed before PICKED_UP
+    // Buyer cancels only allowed before PICKED_UP
     public Payment cancelPayment(UUID auctionId, String buyerEmail) {
         Payment payment = paymentRepository.findByAuctionItemId(auctionId)
                 .orElseThrow(() -> new RuntimeException("Payment not found"));
@@ -244,7 +245,7 @@ public class PaymentService {
             throw new RuntimeException("Only held payments can be cancelled.");
         }
 
-        // Check delivery status — cannot cancel after pickup
+        // Check delivery status, cannot cancel after pickup
         deliveryRepository.findByAuctionItemId(auctionId).ifPresent(delivery -> {
             if (delivery.getStatus() == DeliveryStatus.PICKED_UP ||
                     delivery.getStatus() == DeliveryStatus.IN_TRANSIT ||
@@ -267,6 +268,11 @@ public class PaymentService {
         User seller = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return paymentRepository.findBySellerId(seller.getId());
+    }
+
+    public Payment getPaymentByAuctionId(UUID auctionId) {
+        return paymentRepository.findByAuctionItemId(auctionId)
+                .orElseThrow(() -> new RuntimeException("Payment not found for this auction"));
     }
 
     public List<Payment> getAllPayments() {

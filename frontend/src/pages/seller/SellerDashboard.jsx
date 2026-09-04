@@ -320,7 +320,7 @@ export default function SellerDashboard() {
                                                 styles.statusPending
                                             }`}>
                                                 {payment.status === 'HELD'     ? 'In escrow' :
-                                                payment.status === 'RELEASED' ? `R${payment.sellerAmount.toLocaleString()} released` :
+                                                payment.status === 'RELEASED' ? `R${payment.sellerAmount?.toLocaleString()} released` :
                                                 payment.status === 'REFUNDED' ? 'Refunded' :
                                                 payment.status === 'PENDING'  ? 'Awaiting payment' : ''}
                                             </span>

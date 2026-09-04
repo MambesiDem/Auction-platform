@@ -83,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/payments/*/release").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payments/*/refund").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/payments/*/cancel").hasAuthority("BUYER")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/status/**").hasAuthority("BUYER")
 
                         .anyRequest().authenticated()
                 )

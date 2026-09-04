@@ -75,6 +75,12 @@ public class PaymentController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/status/{auctionId}")
+    public PaymentResponse getPaymentStatus(@PathVariable UUID auctionId) {
+        Payment payment = paymentService.getPaymentByAuctionId(auctionId);
+        return paymentService.mapToResponse(payment);
+    }
+
     private String getAuthenticatedEmail() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = (User) auth.getPrincipal();

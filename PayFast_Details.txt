@@ -1,0 +1,61 @@
+Merchant ID:	10048137
+Merchant Key:	h4mh45v66h1ph
+Sandbox URL:	https://sandbox.payfast.co.za/eng/process
+Salt Passphrase: MambesiDemIya
+
+
+
+
+C:\Users\demma>ngrok config add-authtoken 3ClQuWyHoFuQLlxAG4dsigbL5W9_S1G1wDH3P4j5JnvnAVWj
+Authtoken saved to configuration file: C:\Users\demma\AppData\Local/ngrok/ngrok.yml
+
+
+'admin@bidora.com',
+    'Bidora Admin',
+    false,
+    '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.',
+    'ADMIN'
+
+
+Team Name: CLAZMS
+
+Render Database:
+
+Hostname : dpg-d7rpka6gvqtc73bm9bfg-a
+Port     : 5432
+Database : bidora_db
+Username : bidora_db_user
+Password : 4QRd4R9q9QFUR2SaMjJ0xpV3Qkq3z4jT
+
+
+application.properties:
+
+spring.application.name=Action.api 
+jwt.secret=your-very-long-and-secure-secret-key-replace-this-in-production-min-256-bits 
+jwt.expiration=3600000 
+spring.datasource.url=jdbc:postgresql://localhost:5432/auction_db 
+spring.datasource.username=postgres 
+spring.datasource.password= 
+spring.jpa.hibernate.ddl-auto=update 
+spring.jpa.show-sql=true 
+payfast.merchant-id=10048137 
+payfast.merchant-key=h4mh45v66h1ph 
+payfast.passphrase=MambesiDemIya 
+payfast.sandbox=true 
+payfast.return-url=http://localhost:3000/payment/success 
+payfast.cancel-url=http://localhost:3000/payment/cancel 
+payfast.notify-url=https://ranging-machinist-emperor.ngrok-free.dev/api/payments/notify 
+platform.commission=0.05
+
+
+Database URL from Render:
+jdbc:postgresql://dpg-d7rpka6gvqtc73bm9bfg-a:5432/bidora_db
+
+git pull origin main --rebase
+# If conflicts appear:
+git checkout --theirs frontend/src/components/Navbar.jsx
+git checkout --theirs README.md
+git add frontend/src/components/Navbar.jsx
+git rebase --continue
+git push origin main
+

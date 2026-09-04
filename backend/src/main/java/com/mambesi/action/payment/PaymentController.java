@@ -2,7 +2,6 @@ package com.mambesi.action.payment;
 
 import com.mambesi.action.payment.dto.PaymentResponse;
 import com.mambesi.action.user.User;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,7 +23,6 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    // Buyer initiates payment for won auction
     @PostMapping("/initiate/{auctionId}")
     public ResponseEntity<String> initiatePayment(@PathVariable UUID auctionId) {
         String email = getAuthenticatedEmail();
@@ -32,10 +30,35 @@ public class PaymentController {
         return ResponseEntity.ok(redirectUrl);
     }
 
-    // PayFast ITN webhook — must be public, no auth
+    // Single unified ITN handler — handles both form params and raw body
     @PostMapping("/notify")
-    public ResponseEntity<String> handleItn(@RequestParam Map<String, String> itnData) {
-        paymentService.handleItn(itnData);
+    public ResponseEntity<String> handleItn(
+            @RequestParam(required = false) Map<String, String> itnData,
+            @RequestBody(required = false) String body) {
+        try {
+            Map<String, String> data = new HashMap<>();
+
+            if (itnData != null && !itnData.isEmpty()) {
+                data = itnData;
+            } else if (body != null && !body.isEmpty()) {
+                for (String pair : body.split("&")) {
+                    String[] kv = pair.split("=", 2);
+                    if (kv.length == 2) {
+                        data.put(
+                                java.net.URLDecoder.decode(kv[0], "UTF-8"),
+                                java.net.URLDecoder.decode(kv[1], "UTF-8")
+                        );
+                    }
+                }
+            }
+
+            System.out.println("ITN RECEIVED: " + data);
+            paymentService.handleItn(data);
+
+        } catch (Exception e) {
+            System.out.println("ITN ERROR: " + e.getMessage());
+        }
+
         return ResponseEntity.ok("OK");
     }
 
@@ -47,7 +70,6 @@ public class PaymentController {
         );
     }
 
-    // Buyer views their payments
     @GetMapping("/my-payments")
     public List<PaymentResponse> getMyPayments() {
         String email = getAuthenticatedEmail();
@@ -57,7 +79,6 @@ public class PaymentController {
                 .collect(Collectors.toList());
     }
 
-    // Seller views their payments
     @GetMapping("/my-earnings")
     public List<PaymentResponse> getMyEarnings() {
         String email = getAuthenticatedEmail();
@@ -67,7 +88,6 @@ public class PaymentController {
                 .collect(Collectors.toList());
     }
 
-    // Admin views all payments
     @GetMapping
     public List<PaymentResponse> getAllPayments() {
         return paymentService.getAllPayments()
@@ -84,36 +104,6 @@ public class PaymentController {
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
-        return ResponseEntity.ok("OK");
-    }
-
-    @PostMapping("/notify")
-    public ResponseEntity<String> handleItn(
-            @RequestParam Map<String, String> itnData,
-            @RequestBody(required = false) String body) {
-
-        // Respond immediately so PayFast doesn't timeout
-        try {
-            // Handle both form params and request body
-            if (itnData.isEmpty() && body != null) {
-                Map<String, String> parsed = new HashMap<>();
-                for (String pair : body.split("&")) {
-                    String[] kv = pair.split("=", 2);
-                    if (kv.length == 2) {
-                        parsed.put(
-                                java.net.URLDecoder.decode(kv[0], "UTF-8"),
-                                java.net.URLDecoder.decode(kv[1], "UTF-8")
-                        );
-                    }
-                }
-                paymentService.handleItn(parsed);
-            } else {
-                paymentService.handleItn(itnData);
-            }
-        } catch (Exception e) {
-            System.out.println("ITN processing error: " + e.getMessage());
-        }
-
         return ResponseEntity.ok("OK");
     }
 

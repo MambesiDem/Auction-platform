@@ -292,6 +292,8 @@ export default function SellerDashboard() {
                     ) : (
                         auctions.map(auction => {
                             const payment = payments.find(p => p.auctionId === auction.id);
+                            const paymentReady = payment &&
+                                (payment.status === 'HELD' || payment.status === 'RELEASED');
 
                             return (
                                 <div key={auction.id} className={styles.row}>
@@ -326,19 +328,26 @@ export default function SellerDashboard() {
                                             </span>
                                         )}
 
-                                        {/* No payment yet on closed auction with winner */}
+                                        {/* No payment record yet */}
                                         {!payment && !auction.active && auction.winnerEmail && (
                                             <span className={`${styles.statusPill} ${styles.statusPending}`}>
                                                 Awaiting payment
                                             </span>
                                         )}
 
+                                        {/* Create delivery — disabled until payment is in escrow */}
                                         {!auction.active && auction.winnerEmail && !deliveryExistsFor(auction.id) && (
                                             <button
                                                 className={styles.outlineBtn}
                                                 onClick={() => handleCreateDelivery(auction.id)}
+                                                disabled={!paymentReady}
+                                                style={{
+                                                    opacity: paymentReady ? 1 : 0.4,
+                                                    cursor: paymentReady ? 'pointer' : 'not-allowed'
+                                                }}
+                                                title={!paymentReady ? 'Waiting for buyer payment' : 'Create delivery'}
                                             >
-                                                Create delivery
+                                                {paymentReady ? 'Create delivery' : 'Awaiting payment'}
                                             </button>
                                         )}
 

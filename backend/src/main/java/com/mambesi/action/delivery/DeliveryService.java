@@ -6,6 +6,9 @@ import com.mambesi.action.payment.PaymentService;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
 import org.springframework.stereotype.Service;
+import com.mambesi.action.payment.Payment;
+import com.mambesi.action.payment.PaymentRepository;
+import com.mambesi.action.payment.PaymentStatus;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,14 +22,18 @@ public class DeliveryService {
 
     private final PaymentService paymentService;
 
+    private final PaymentRepository paymentRepository;
+
     public DeliveryService(DeliveryRepository deliveryRepository,
                            AuctionRepository auctionRepository,
                            UserRepository userRepository,
-                           PaymentService paymentService) {
+                           PaymentService paymentService,
+                           PaymentRepository paymentRepository) {
         this.deliveryRepository = deliveryRepository;
         this.auctionRepository = auctionRepository;
         this.userRepository = userRepository;
         this.paymentService = paymentService;
+        this.paymentRepository = paymentRepository;
     }
 
     // Seller creates a delivery request after auction closes
@@ -48,6 +55,19 @@ public class DeliveryService {
 
         if (!auction.getOwner().getId().equals(seller.getId())) {
             throw new RuntimeException("Only the auction owner can create a delivery.");
+        }
+
+        // Check payment is at least HELD before allowing delivery creation
+        Payment payment = paymentRepository.findByAuctionItemId(auctionId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Payment not found. Buyer must complete payment before delivery can be created."
+                ));
+
+        if (payment.getStatus() != PaymentStatus.HELD &&
+                payment.getStatus() != PaymentStatus.RELEASED) {
+            throw new RuntimeException(
+                    "Buyer has not completed payment yet. Delivery cannot be created until payment is in escrow."
+            );
         }
 
         Delivery delivery = new Delivery();

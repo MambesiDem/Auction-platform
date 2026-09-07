@@ -14,11 +14,12 @@ public class AuctionResponse {
     private LocalDateTime endTime;
     private String ownerEmail;
     private String winnerEmail;
+    private LocalDateTime paymentDeadline;
 
     public AuctionResponse(UUID id, String title, String description,
                            double currentPrice, boolean active,
                            LocalDateTime startTime, LocalDateTime endTime,
-                           String ownerEmail, String winnerEmail) {
+                           String ownerEmail, String winnerEmail, LocalDateTime paymentDeadline) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -28,6 +29,7 @@ public class AuctionResponse {
         this.endTime = endTime;
         this.ownerEmail = ownerEmail;
         this.winnerEmail = winnerEmail;
+        this.paymentDeadline = paymentDeadline;
     }
 
     public UUID getId() {
@@ -65,4 +67,5 @@ public class AuctionResponse {
     public String getWinnerEmail() {
         return winnerEmail;
     }
+    public LocalDateTime getPaymentDeadline() { return paymentDeadline; }
 }

@@ -36,6 +36,7 @@ public class AuctionScheduler {
 
         for (AuctionItem auction : auctions) {
 
+            // Close expired active auctions
             if (auction.isActive()
                     && auction.getEndTime().isBefore(LocalDateTime.now())) {
 
@@ -52,6 +53,15 @@ public class AuctionScheduler {
                 message.setTimestamp(LocalDateTime.now().toString());
 
                 messagingTemplate.convertAndSend("/topic/auction-closed", message);
+            }
+
+            // Check payment deadline on closed auctions with a winner
+            if (!auction.isActive()
+                    && auction.getWinner() != null
+                    && auction.getPaymentDeadline() != null
+                    && auction.getPaymentDeadline().isBefore(LocalDateTime.now())) {
+
+                auctionService.expirePaymentAndReassign(auction.getId());
             }
         }
     }

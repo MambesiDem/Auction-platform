@@ -94,7 +94,8 @@ public class AuctionController {
                 item.getStartTime(),
                 item.getEndTime(),
                 item.getOwner() != null ? item.getOwner().getEmail() : null,
-                item.getWinner() != null ? item.getWinner().getEmail() : null
+                item.getWinner() != null ? item.getWinner().getEmail() : null,
+                item.getPaymentDeadline()
         );
     }
     @PutMapping("/{id}/close")
@@ -102,5 +103,13 @@ public class AuctionController {
         AuctionItem auction = auctionService.getAuctionById(id);
         AuctionItem closed = auctionService.closeAuction(auction);
         return mapToResponse(closed);
+    }
+    @PutMapping("/{id}/reopen")
+    public AuctionResponse reopenAuction(@PathVariable UUID id,
+                                         HttpServletRequest httpRequest) {
+        String email = jwtService.extractEmail(
+                httpRequest.getHeader("Authorization").substring(7)
+        );
+        return mapToResponse(auctionService.reopenAuction(id, email));
     }
 }

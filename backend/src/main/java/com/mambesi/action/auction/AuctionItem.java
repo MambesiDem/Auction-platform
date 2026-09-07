@@ -20,6 +20,9 @@ public class AuctionItem {
     @Column(nullable = false)
     private String title;
 
+    @Column
+    private LocalDateTime paymentDeadline;
+
     @Column(nullable = false)
     private String description;
 
@@ -140,11 +143,16 @@ public class AuctionItem {
         return winner;
     }
 
+    public LocalDateTime getPaymentDeadline() { return paymentDeadline; }
+
     public void setWinner(User winner) {
         this.winner = winner;
     }
     public boolean isActive(){
         return isActive;
     }
+
+
+    public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }
 
 }

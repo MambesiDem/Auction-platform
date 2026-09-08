@@ -30,33 +30,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        System.out.println("JWT FILTER HIT");
         String authHeader = request.getHeader("Authorization");
         String token = null;
         String email = null;
 
-        //Authorization: Bearer eyJhbGciOiJIUzI1NiJ9... is sent from frontend.
-
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
 
-            //Validate before extracting
             if (jwtService.isTokenValid(token)) {
                 email = jwtService.extractEmail(token);
 
                 if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    System.out.println("TOKEN: " + token);
-                    System.out.println("EXTRACTED EMAIL: " + jwtService.extractEmail(token));
                     var user = userRepository.findByEmail(email).orElse(null);
-                    System.out.println("USER FOUND: " + user);
-
-                    System.out.println("TOKEN VALID: " + jwtService.isTokenValid(token));
 
                     if (user != null) {
-                        System.out.println("DEBUG user: " + user.getEmail() +
-                                " role: " + user.getRole() +
-                                " authorities: " + user.getAuthorities());
-
                         var authToken = new UsernamePasswordAuthenticationToken(
                                 user, null, user.getAuthorities()
                         );
@@ -67,7 +54,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
 
-        //ALWAYS continue the filter chain
         filterChain.doFilter(request, response);
     }
 }

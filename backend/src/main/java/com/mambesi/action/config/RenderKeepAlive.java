@@ -19,7 +19,6 @@ public class RenderKeepAlive {
         if (baseUrl != null && !baseUrl.isEmpty()) {
             try {
                 restTemplate.getForObject(baseUrl + "/api/payments/health", String.class);
-                System.out.println("Keep-alive ping sent");
             } catch (Exception e) {
                 System.out.println("Keep-alive failed: " + e.getMessage());
             }

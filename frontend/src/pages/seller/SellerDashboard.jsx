@@ -31,8 +31,6 @@ export default function SellerDashboard() {
                 axiosInstance.get('/api/deliveries/my-sales'),
                 axiosInstance.get('/api/payments/my-earnings'),
             ]);
-
-            // Only show auctions belonging to this seller
             const mine = auctionsRes.data.filter(
                 a => a.ownerEmail === user?.email
             );
@@ -48,6 +46,14 @@ export default function SellerDashboard() {
 
     useEffect(() => {
         fetchData();
+    }, [fetchData]);
+
+    // Poll every 30 seconds to catch payment deadline expirations
+    useEffect(() => {
+        const poll = setInterval(() => {
+            fetchData();
+        }, 30000);
+        return () => clearInterval(poll);
     }, [fetchData]);
 
     const handleChange = (e) => {
@@ -74,7 +80,6 @@ export default function SellerDashboard() {
         const now = new Date();
         const start = new Date(startTime);
         const end = new Date(endTime);
-
         const oneMinuteFromNow = new Date(now.getTime() + 60 * 1000);
 
         if (start < oneMinuteFromNow) {
@@ -93,7 +98,7 @@ export default function SellerDashboard() {
                 title,
                 description,
                 startingPrice: parseFloat(startingPrice),
-                startTime: startTime +':00',
+                startTime: startTime + ':00',
                 endTime: endTime + ':00',
             });
             setForm(EMPTY_FORM);
@@ -125,15 +130,23 @@ export default function SellerDashboard() {
         }
     };
 
+    const handleReopenAuction = async (auctionId) => {
+        if (!window.confirm('Reopen this auction for 24 hours?')) return;
+        try {
+            await axiosInstance.put(`/api/auctions/${auctionId}/reopen`);
+            fetchData();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to reopen auction.');
+        }
+    };
+
     const activeAuctions = auctions.filter(a => a.active);
     const totalRevenue = payments
         .filter(p => p.status === 'RELEASED')
         .reduce((sum, p) => sum + p.sellerAmount, 0);
-
     const pendingEarnings = payments
         .filter(p => p.status === 'HELD')
         .reduce((sum, p) => sum + p.sellerAmount, 0);
-
     const pendingDeliveries = deliveries.filter(
         d => d.status !== 'DELIVERED' && d.status !== 'CANCELLED'
     ).length;
@@ -183,9 +196,9 @@ export default function SellerDashboard() {
                 </p>
 
                 <div className={styles.stats}>
-                    <StatCard label="Active auctions" value={activeAuctions.length} />
-                    <StatCard label="Released earnings" value={`R${totalRevenue.toLocaleString()}`} />
-                    <StatCard label="In escrow"        value={`R${pendingEarnings.toLocaleString()}`} />
+                    <StatCard label="Active auctions"    value={activeAuctions.length} />
+                    <StatCard label="Released earnings"  value={`R${totalRevenue.toLocaleString()}`} />
+                    <StatCard label="In escrow"          value={`R${pendingEarnings.toLocaleString()}`} />
                     <StatCard label="Pending deliveries" value={pendingDeliveries} />
                 </div>
 
@@ -322,20 +335,20 @@ export default function SellerDashboard() {
                                                 styles.statusPending
                                             }`}>
                                                 {payment.status === 'HELD'     ? 'In escrow' :
-                                                payment.status === 'RELEASED' ? `R${payment.sellerAmount?.toLocaleString()} released` :
-                                                payment.status === 'REFUNDED' ? 'Refunded' :
-                                                payment.status === 'PENDING'  ? 'Awaiting payment' : ''}
+                                                 payment.status === 'RELEASED' ? `R${payment.sellerAmount?.toLocaleString()} released` :
+                                                 payment.status === 'REFUNDED' ? 'Refunded' :
+                                                 payment.status === 'PENDING'  ? 'Awaiting payment' : ''}
                                             </span>
                                         )}
 
-                                        {/* No payment record yet */}
+                                        {/* No payment record yet on closed auction with winner */}
                                         {!payment && !auction.active && auction.winnerEmail && (
                                             <span className={`${styles.statusPill} ${styles.statusPending}`}>
                                                 Awaiting payment
                                             </span>
                                         )}
 
-                                        {/* Create delivery — disabled until payment is in escrow */}
+                                        {/* Create delivery — disabled until payment in escrow */}
                                         {!auction.active && auction.winnerEmail && !deliveryExistsFor(auction.id) && (
                                             <button
                                                 className={styles.outlineBtn}
@@ -351,6 +364,17 @@ export default function SellerDashboard() {
                                             </button>
                                         )}
 
+                                        {/* Reopen auction — only when closed with no winner */}
+                                        {!auction.active && !auction.winnerEmail && (
+                                            <button
+                                                className={styles.outlineBtn}
+                                                onClick={() => handleReopenAuction(auction.id)}
+                                            >
+                                                Reopen auction
+                                            </button>
+                                        )}
+
+                                        {/* Delete — only on active auctions */}
                                         {auction.active && (
                                             <button
                                                 className={styles.dangerBtn}

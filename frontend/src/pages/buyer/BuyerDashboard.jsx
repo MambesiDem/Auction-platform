@@ -19,20 +19,20 @@ export default function BuyerDashboard() {
     const [loading, setLoading] = useState(true);
     const [timers, setTimers] = useState({});
     const [payments, setPayments] = useState([]);
-    const [paymentTimers, setPaymentTimers] = useState({});
+    const [paymentTimers, setPaymentTimers] = useState([]);
 
     const fetchData = useCallback(async () => {
         try {
-            const [auctionsRes, winsRes, deliveriesRes] = await Promise.all([
+            const [auctionsRes, winsRes, deliveriesRes, paymentsRes] = await Promise.all([
                 axiosInstance.get('/api/auctions'),
                 axiosInstance.get('/api/auctions/my-wins'),
                 axiosInstance.get('/api/deliveries/my-purchases'),
+                axiosInstance.get('/api/payments/my-payments'),
             ]);
-            const paymentsRes = await axiosInstance.get('/api/payments/my-payments');
-            setPayments(paymentsRes.data);
             setAuctions(auctionsRes.data.filter(a => a.active));
             setMyWins(winsRes.data);
             setDeliveries(deliveriesRes.data);
+            setPayments(paymentsRes.data);
         } catch (err) {
             console.error('Failed to fetch dashboard data', err);
         } finally {
@@ -40,7 +40,7 @@ export default function BuyerDashboard() {
         }
     }, []);
 
-    // WebSocket — live bid updates
+    // WebSocket — live bid updates + auction reassignment
     useEffect(() => {
         fetchData();
 
@@ -57,6 +57,11 @@ export default function BuyerDashboard() {
                 });
 
                 client.subscribe('/topic/auction-closed', () => {
+                    fetchData();
+                });
+
+                // Refresh when auction is reassigned to second bidder
+                client.subscribe('/topic/auction-reassigned', () => {
                     fetchData();
                 });
             },
@@ -86,23 +91,26 @@ export default function BuyerDashboard() {
         return () => clearInterval(interval);
     }, [myWins]);
 
-    // Subscribe to auction-reassigned WebSocket topic
-    client.subscribe('/topic/auction-reassigned', () => {
-        fetchData();
-    });
-
-    // Subscribe to auction-reassigned WebSocket topic
-    client.subscribe('/topic/auction-reassigned', () => {
-        fetchData();
-    });
-
-    // Poll every 30 seconds as fallback for missed WebSocket events
+    // Poll every 30 seconds as fallback
     useEffect(() => {
         const poll = setInterval(() => {
             fetchData();
         }, 30000);
         return () => clearInterval(poll);
     }, [fetchData]);
+
+    // Poll every 30 seconds while a payment deadline is active
+    useEffect(() => {
+        const hasActiveDeadline = myWins.some(
+            a => a.paymentDeadline && new Date(a.paymentDeadline) > new Date()
+        );
+        if (!hasActiveDeadline) return;
+
+        const poll = setInterval(() => {
+            fetchData();
+        }, 30000);
+        return () => clearInterval(poll);
+    }, [myWins, fetchData]);
 
     const handleCancelPayment = async (auctionId) => {
         if (!window.confirm('Cancel this order? You will be refunded.')) return;
@@ -114,7 +122,7 @@ export default function BuyerDashboard() {
         }
     };
 
-    // Countdown timers, handles upcoming, live, and ended states
+    // Auction countdown timers — upcoming, live, ended
     useEffect(() => {
         const interval = setInterval(() => {
             const updated = {};
@@ -149,39 +157,27 @@ export default function BuyerDashboard() {
                     updated[a.id] = { label: 'Ended', state: 'ended' };
                 }
             });
-            // Check if any auction just ended and trigger a refresh
+
             const justEnded = Object.values(updated).some(t => t.state === 'ended');
             const wasLive = Object.values(timers).some(t => t?.state === 'live');
-
             if (justEnded && wasLive) {
-                // Small delay to let backend scheduler close auction
                 setTimeout(() => fetchData(), 3000);
             }
             setTimers(updated);
         }, 1000);
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auctions]); 
-
-    const handleReopenAuction = async (auctionId) => {
-        if (!window.confirm('Reopen this auction for 24 hours?')) return;
-        try {
-            await axiosInstance.put(`/api/auctions/${auctionId}/reopen`);
-            fetchData();
-        } catch (err) {
-            alert(err.response?.data?.message || 'Failed to reopen auction.');
-        }
-    };
+    }, [auctions]);
 
     const getStatusStyle = (status) => {
         switch (status) {
-            case 'PENDING':   return styles.statusPending;
+            case 'PENDING':    return styles.statusPending;
             case 'ACCEPTED':
             case 'PICKED_UP':
             case 'IN_TRANSIT': return styles.statusTransit;
-            case 'DELIVERED': return styles.statusDelivered;
-            case 'CANCELLED': return styles.statusCancelled;
-            default:          return styles.statusPending;
+            case 'DELIVERED':  return styles.statusDelivered;
+            case 'CANCELLED':  return styles.statusCancelled;
+            default:           return styles.statusPending;
         }
     };
 
@@ -193,12 +189,9 @@ export default function BuyerDashboard() {
         }
     };
 
-    const activeBids = auctions.filter(a =>
-        a.active
-    ).length;
-
-    const pendingDeliveries = deliveries.filter(d =>
-        d.status !== 'DELIVERED' && d.status !== 'CANCELLED'
+    const activeBids = auctions.filter(a => a.active).length;
+    const pendingDeliveries = deliveries.filter(
+        d => d.status !== 'DELIVERED' && d.status !== 'CANCELLED'
     ).length;
 
     if (loading) {
@@ -223,8 +216,8 @@ export default function BuyerDashboard() {
                 </p>
 
                 <div className={styles.stats}>
-                    <StatCard label="Active bids" value={activeBids} />
-                    <StatCard label="Auctions won" value={myWins.length} />
+                    <StatCard label="Active bids"       value={activeBids} />
+                    <StatCard label="Auctions won"      value={myWins.length} />
                     <StatCard label="Pending deliveries" value={pendingDeliveries} />
                 </div>
 
@@ -252,20 +245,17 @@ export default function BuyerDashboard() {
                                             )}
                                         </p>
                                     </div>
-
                                     <div className={styles.rowRight}>
                                         <span className={`${styles.timer} ${
                                             timerInfo.state === 'upcoming' ? styles.timerUpcoming :
-                                            timerInfo.state === 'ended' ? styles.timerEnded :
+                                            timerInfo.state === 'ended'   ? styles.timerEnded :
                                             styles.timer
                                         }`}>
                                             {timerInfo.label}
                                         </span>
-
                                         <span className={styles.price}>
                                             R{auction.currentPrice?.toLocaleString()}
                                         </span>
-
                                         <button
                                             className={styles.bidBtn}
                                             onClick={() => setSelectedAuction(auction)}
@@ -275,11 +265,8 @@ export default function BuyerDashboard() {
                                                 cursor: isLive ? 'pointer' : 'not-allowed'
                                             }}
                                         >
-                                            {timerInfo.state === 'upcoming'
-                                                ? 'Not started'
-                                                : timerInfo.state === 'ended'
-                                                ? 'Ended'
-                                                : 'Place bid'}
+                                            {timerInfo.state === 'upcoming' ? 'Not started' :
+                                             timerInfo.state === 'ended'   ? 'Ended' : 'Place bid'}
                                         </button>
                                     </div>
                                 </div>
@@ -294,114 +281,110 @@ export default function BuyerDashboard() {
                         <span className={styles.sectionTitle}>My wins</span>
                         <span className={styles.badge}>{myWins.length} total</span>
                     </div>
-                    {myWins.map(auction => {
-                        const delivery = deliveries.find(d => d.auctionId === auction.id);
-                        const payment = payments.find(p => p.auctionId === auction.id);
-                        const paymentTimer = paymentTimers[auction.id];
-                        const paymentPending = !payment || payment.status === 'PENDING';
+                    {myWins.length === 0 ? (
+                        <p className={styles.empty}>You haven't won any auctions yet.</p>
+                    ) : (
+                        myWins.map(auction => {
+                            const delivery = deliveries.find(d => d.auctionId === auction.id);
+                            const payment = payments.find(p => p.auctionId === auction.id);
+                            const paymentTimer = paymentTimers[auction.id];
+                            const paymentPending = !payment || payment.status === 'PENDING';
 
-                        return (
-                            <div key={auction.id} className={styles.row}>
-                                <div>
-                                    <p className={styles.rowTitle}>{auction.title}</p>
-                                    <p className={styles.rowMeta}>
-                                        Won for R{auction.currentPrice?.toLocaleString()}
-                                    </p>
-
-                                    {/* Payment countdown timer */}
-                                    {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
-                                        <p style={{
-                                            fontSize: '12px',
-                                            color: '#A32D2D',
-                                            marginTop: '4px',
-                                            fontWeight: '500'
-                                        }}>
-                                            ⏱ Pay within {paymentTimer} or your win will be reassigned
+                            return (
+                                <div key={auction.id} className={styles.row}>
+                                    <div>
+                                        <p className={styles.rowTitle}>{auction.title}</p>
+                                        <p className={styles.rowMeta}>
+                                            Won for R{auction.currentPrice?.toLocaleString()}
                                         </p>
-                                    )}
 
-                                    {paymentPending && paymentTimer === 'EXPIRED' && (
-                                        <p style={{
-                                            fontSize: '12px',
-                                            color: '#888',
-                                            marginTop: '4px'
-                                        }}>
-                                            Payment window expired
-                                        </p>
-                                    )}
-                                </div>
-                                <div className={styles.rowRight}>
-                                    {!payment && paymentTimer && paymentTimer !== 'EXPIRED' && (
-                                        <button
-                                            className={styles.bidBtn}
-                                            onClick={() => navigate(`/payment/${auction.id}`)}
-                                        >
-                                            Pay now
-                                        </button>
-                                    )}
-                                    {payment && payment.status === 'PENDING' && paymentTimer && paymentTimer !== 'EXPIRED' && (
-                                        <button
-                                            className={styles.bidBtn}
-                                            onClick={() => navigate(`/payment/${auction.id}`)}
-                                        >
-                                            Pay now
-                                        </button>
-                                    )}
-                                    {!auction.active && !auction.winnerEmail && (
-                                        <button
-                                            className={styles.outlineBtn}
-                                            onClick={() => handleReopenAuction(auction.id)}
-                                        >
-                                            Reopen auction
-                                        </button>
-                                    )}
-                                    {payment && (
-                                        <span className={`${styles.statusPill} ${
-                                            payment.status === 'HELD' ? styles.statusTransit :
-                                            payment.status === 'RELEASED' ? styles.statusDelivered :
-                                            payment.status === 'REFUNDED' ? styles.statusCancelled :
-                                            styles.statusPending
-                                        }`}>
-                                            {payment.status === 'PENDING'  ? 'Payment pending' :
-                                            payment.status === 'HELD'     ? 'Paid — in escrow' :
-                                            payment.status === 'RELEASED' ? 'Payment complete' :
-                                            payment.status === 'REFUNDED' ? 'Refunded' : ''}
-                                        </span>
-                                    )}
-                                    {delivery && (
-                                        <span className={`${styles.statusPill} ${getStatusStyle(delivery.status)}`}>
-                                            {formatStatus(delivery.status)}
-                                        </span>
-                                    )}
-                                    {payment && payment.status === 'HELD' && (
-                                        (() => {
-                                            const canCancel = !delivery ||
-                                                (delivery.status !== 'PICKED_UP' &&
-                                                delivery.status !== 'IN_TRANSIT' &&
-                                                delivery.status !== 'DELIVERED');
-                                            return canCancel ? (
-                                                <button
-                                                    onClick={() => handleCancelPayment(auction.id)}
-                                                    style={{
-                                                        fontSize: '11px',
-                                                        padding: '4px 10px',
-                                                        border: '0.5px solid #fca5a5',
-                                                        borderRadius: '6px',
-                                                        background: 'transparent',
-                                                        color: '#b91c1c',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                >
-                                                    Cancel order
-                                                </button>
-                                            ) : null;
-                                        })()
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
+                                        {/* Payment countdown timer */}
+                                        {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
+                                            <p style={{
+                                                fontSize: '12px',
+                                                color: '#A32D2D',
+                                                marginTop: '4px',
+                                                fontWeight: '500'
+                                            }}>
+                                                ⏱ Pay within {paymentTimer} or your win will be reassigned
+                                            </p>
+                                        )}
+
+                                        {paymentPending && paymentTimer === 'EXPIRED' && (
+                                            <p style={{
+                                                fontSize: '12px',
+                                                color: '#888',
+                                                marginTop: '4px'
+                                            }}>
+                                                Payment window expired
+                                            </p>
+                                        )}
                                     </div>
+
+                                    <div className={styles.rowRight}>
+                                        {/* Pay now button */}
+                                        {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
+                                            <button
+                                                className={styles.bidBtn}
+                                                onClick={() => navigate(`/payment/${auction.id}`)}
+                                            >
+                                                Pay now
+                                            </button>
+                                        )}
+
+                                        {/* Payment status badge */}
+                                        {payment && (
+                                            <span className={`${styles.statusPill} ${
+                                                payment.status === 'HELD'     ? styles.statusTransit :
+                                                payment.status === 'RELEASED' ? styles.statusDelivered :
+                                                payment.status === 'REFUNDED' ? styles.statusCancelled :
+                                                styles.statusPending
+                                            }`}>
+                                                {payment.status === 'PENDING'  ? 'Payment pending' :
+                                                 payment.status === 'HELD'     ? 'Paid — in escrow' :
+                                                 payment.status === 'RELEASED' ? 'Payment complete' :
+                                                 payment.status === 'REFUNDED' ? 'Refunded' : ''}
+                                            </span>
+                                        )}
+
+                                        {/* Delivery status badge */}
+                                        {delivery && (
+                                            <span className={`${styles.statusPill} ${getStatusStyle(delivery.status)}`}>
+                                                {formatStatus(delivery.status)}
+                                            </span>
+                                        )}
+
+                                        {/* Cancel order button */}
+                                        {payment && payment.status === 'HELD' && (
+                                            (() => {
+                                                const canCancel = !delivery ||
+                                                    (delivery.status !== 'PICKED_UP' &&
+                                                     delivery.status !== 'IN_TRANSIT' &&
+                                                     delivery.status !== 'DELIVERED');
+                                                return canCancel ? (
+                                                    <button
+                                                        onClick={() => handleCancelPayment(auction.id)}
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            padding: '4px 10px',
+                                                            border: '0.5px solid #fca5a5',
+                                                            borderRadius: '6px',
+                                                            background: 'transparent',
+                                                            color: '#b91c1c',
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        Cancel order
+                                                    </button>
+                                                ) : null;
+                                            })()
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
 
                 {/* My Deliveries */}
                 <div className={styles.section}>

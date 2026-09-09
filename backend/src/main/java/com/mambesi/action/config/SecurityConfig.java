@@ -62,6 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/auctions/**").hasAnyAuthority("SELLER", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/auctions/*/close").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/auctions/*/reopen").hasAuthority("SELLER")
+                        .requestMatchers(HttpMethod.GET, "/api/auctions/my-losses").hasAuthority("BUYER")
 
                         // Bid endpoints
                         .requestMatchers(HttpMethod.POST, "/api/bids/**").hasAuthority("BUYER")

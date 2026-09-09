@@ -112,4 +112,13 @@ public class AuctionController {
         );
         return mapToResponse(auctionService.reopenAuction(id, email));
     }
+    @GetMapping("/my-losses")
+    public List<AuctionResponse> getMyLosses() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) auth.getPrincipal();
+        return auctionService.getMyLosses(user.getEmail())
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
 }

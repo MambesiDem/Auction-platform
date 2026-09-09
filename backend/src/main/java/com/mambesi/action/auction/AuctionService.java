@@ -193,4 +193,9 @@ public class AuctionService {
             System.out.println("No second bidder — auction closed with no winner: " + auctionId);
         }
     }
+    public List<AuctionItem> getMyLosses(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return auctionRepository.findLostAuctionsByBidderId(user.getId());
+    }
 }

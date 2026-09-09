@@ -20,6 +20,7 @@ export default function BuyerDashboard() {
     const [timers, setTimers] = useState({});
     const [payments, setPayments] = useState([]);
     const [paymentTimers, setPaymentTimers] = useState([]);
+    const [myLosses, setMyLosses] = useState([]);
 
     const fetchData = useCallback(async () => {
         try {
@@ -28,11 +29,13 @@ export default function BuyerDashboard() {
                 axiosInstance.get('/api/auctions/my-wins'),
                 axiosInstance.get('/api/deliveries/my-purchases'),
                 axiosInstance.get('/api/payments/my-payments'),
+                axiosInstance.get('/api/auctions/my-losses'),
             ]);
             setAuctions(auctionsRes.data.filter(a => a.active));
             setMyWins(winsRes.data);
             setDeliveries(deliveriesRes.data);
             setPayments(paymentsRes.data);
+            setMyLosses(lossesRes.data);
         } catch (err) {
             console.error('Failed to fetch dashboard data', err);
         } finally {
@@ -218,6 +221,7 @@ export default function BuyerDashboard() {
                 <div className={styles.stats}>
                     <StatCard label="Active bids"       value={activeBids} />
                     <StatCard label="Auctions won"      value={myWins.length} />
+                    <StatCard label="Losses"             value={myLosses.length} />
                     <StatCard label="Pending deliveries" value={pendingDeliveries} />
                 </div>
 
@@ -407,6 +411,38 @@ export default function BuyerDashboard() {
                                 </div>
                                 <span className={`${styles.statusPill} ${getStatusStyle(delivery.status)}`}>
                                     {formatStatus(delivery.status)}
+                                </span>
+                            </div>
+                        ))
+                    )}
+                </div>
+                {/* My Losses */}
+                <div className={styles.section}>
+                    <div className={styles.sectionHeader}>
+                        <span className={styles.sectionTitle}>My losses</span>
+                        <span className={styles.badge}>{myLosses.length} total</span>
+                    </div>
+                    {myLosses.length === 0 ? (
+                        <p className={styles.empty}>
+                            No losses yet — keep bidding!
+                        </p>
+                    ) : (
+                        myLosses.map(auction => (
+                            <div key={auction.id} className={styles.row}>
+                                <div>
+                                    <p className={styles.rowTitle}>{auction.title}</p>
+                                    <p className={styles.rowMeta}>
+                                        Final price: R{auction.currentPrice?.toLocaleString()}
+                                        {auction.winnerEmail && (
+                                            <span> · Won by another buyer</span>
+                                        )}
+                                        {!auction.winnerEmail && (
+                                            <span> · Closed with no winner</span>
+                                        )}
+                                    </p>
+                                </div>
+                                <span className={`${styles.statusPill} ${styles.statusCancelled}`}>
+                                    Outbid
                                 </span>
                             </div>
                         ))

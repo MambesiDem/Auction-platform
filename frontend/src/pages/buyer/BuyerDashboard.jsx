@@ -59,8 +59,19 @@ export default function BuyerDashboard() {
                     ));
                 });
 
-                client.subscribe('/topic/auction-closed', () => {
-                    fetchData();
+                client.subscribe('/topic/auction-closed', (message) => {
+                    // Retry fetching up to 5 times with increasing delays
+                    // to ensure the backend has fully processed the close
+                    const retryFetch = (attempt) => {
+                        const delay = attempt * 2000; // 2s, 4s, 6s, 8s, 10s
+                        setTimeout(() => {
+                            fetchData();
+                        }, delay);
+                    };
+
+                    for (let i = 1; i <= 5; i++) {
+                        retryFetch(i);
+                    }
                 });
 
                 // Refresh when auction is reassigned to second bidder
@@ -164,12 +175,11 @@ export default function BuyerDashboard() {
             const justEnded = Object.values(updated).some(t => t.state === 'ended');
             const wasLive = Object.values(timers).some(t => t?.state === 'live');
             if (justEnded && wasLive) {
-                setTimeout(() => fetchData(), 3000);
+                setTimeout(() => fetchData(), 5000);
             }
             setTimers(updated);
         }, 1000);
         return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [auctions]);
 
     const getStatusStyle = (status) => {

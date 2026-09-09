@@ -24,7 +24,7 @@ export default function BuyerDashboard() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [auctionsRes, winsRes, deliveriesRes, paymentsRes] = await Promise.all([
+            const [auctionsRes, winsRes, deliveriesRes, paymentsRes, lossesRes] = await Promise.all([
                 axiosInstance.get('/api/auctions'),
                 axiosInstance.get('/api/auctions/my-wins'),
                 axiosInstance.get('/api/deliveries/my-purchases'),

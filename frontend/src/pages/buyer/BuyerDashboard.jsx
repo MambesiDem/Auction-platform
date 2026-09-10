@@ -60,10 +60,9 @@ export default function BuyerDashboard() {
                 });
 
                 client.subscribe('/topic/auction-closed', (message) => {
-                    // Retry fetching up to 5 times with increasing delays
-                    // to ensure the backend has fully processed the close
+                   
                     const retryFetch = (attempt) => {
-                        const delay = attempt * 2000; // 2s, 4s, 6s, 8s, 10s
+                        const delay = attempt * 2000; //2s,4s,6s,8s,10s
                         setTimeout(() => {
                             fetchData();
                         }, delay);
@@ -180,6 +179,7 @@ export default function BuyerDashboard() {
             setTimers(updated);
         }, 1000);
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [auctions]);
 
     const getStatusStyle = (status) => {

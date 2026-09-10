@@ -378,7 +378,26 @@ export default function SellerDashboard() {
                                         {auction.active && (
                                             <button
                                                 className={styles.dangerBtn}
-                                                onClick={() => handleDeleteAuction(auction.id)}
+                                                onClick={() => {
+                                                        const payment = payments.find(p => p.auctionId === auction.id);
+                                                        const paymentLocked = payment &&
+                                                            (payment.status === 'HELD' || payment.status === 'RELEASED');
+                                                        const delivery = deliveries.find(d => d.auctionId === auction.id);
+                                                        const deliveryLocked = delivery &&
+                                                            delivery.status !== 'PENDING' && delivery.status !== 'CANCELLED';
+
+                                                        const canDelete = !paymentLocked && !deliveryLocked;
+
+                                                        return canDelete ? (
+                                                            <button
+                                                                className={styles.dangerBtn}
+                                                                onClick={() => handleDeleteAuction(auction.id)}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        ) : null;
+                                                    }
+                                                }
                                             >
                                                 Delete
                                             </button>

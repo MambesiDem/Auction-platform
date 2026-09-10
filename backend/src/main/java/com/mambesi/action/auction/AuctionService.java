@@ -10,8 +10,10 @@ import com.mambesi.action.payment.Payment;
 import com.mambesi.action.payment.PaymentRepository;
 import com.mambesi.action.payment.PaymentStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import java.util.Optional;
 import java.util.stream.Collectors;
+import com.mambesi.action.delivery.DeliveryRepository;
+import com.mambesi.action.delivery.DeliveryStatus;
+import java.util.Optional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -27,16 +29,19 @@ public class AuctionService {
 
     private final PaymentRepository paymentRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final DeliveryRepository deliveryRepository;
 
     public AuctionService(AuctionRepository auctionRepository,
                           UserRepository userRepository,
                           BidRepository bidRepository,
                         PaymentRepository paymentRepository,
+                          DeliveryRepository deliveryRepository,
                           SimpMessagingTemplate messagingTemplate) {
         this.auctionRepository = auctionRepository;
         this.userRepository = userRepository;
         this.bidRepository = bidRepository;
         this.paymentRepository = paymentRepository;
+        this.deliveryRepository = deliveryRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -71,9 +76,34 @@ public class AuctionService {
             throw new RuntimeException("You are not authorized to delete this auction.");
         }
 
-        if (auction.isActive()) {
-            throw new RuntimeException("Cannot delete an active auction.");
+        // Block deletion if payment is in escrow or beyond
+        Optional<Payment> payment = paymentRepository.findByAuctionItemId(id);
+        if (payment.isPresent()) {
+            PaymentStatus status = payment.get().getStatus();
+            if (status == PaymentStatus.HELD ||
+                    status == PaymentStatus.RELEASED) {
+                throw new RuntimeException(
+                        "Cannot delete — buyer has already paid. Contact support to resolve."
+                );
+            }
+            // Cancel pending payment record if it exists
+            if (status == PaymentStatus.PENDING) {
+                payment.get().setStatus(PaymentStatus.FAILED);
+                paymentRepository.save(payment.get());
+            }
         }
+
+        // Block if delivery is already in progress
+        deliveryRepository.findByAuctionItemId(id).ifPresent(delivery -> {
+            if (delivery.getStatus() != DeliveryStatus.PENDING) {
+                throw new RuntimeException(
+                        "Cannot delete — delivery is already in progress."
+                );
+            }
+            // Cancel pending delivery
+            delivery.setStatus(DeliveryStatus.CANCELLED);
+            deliveryRepository.save(delivery);
+        });
 
         auctionRepository.deleteById(id);
     }

@@ -364,7 +364,7 @@ export default function SellerDashboard() {
                                             </button>
                                         )}
 
-                                        {/* Reopen auction — only when closed with no winner */}
+                                        {/* Reopen auction - only when closed with no winner */}
                                         {!auction.active && !auction.winnerEmail && (
                                             <button
                                                 className={styles.outlineBtn}
@@ -374,34 +374,28 @@ export default function SellerDashboard() {
                                             </button>
                                         )}
 
-                                        {/* Delete — only on active auctions */}
-                                        {auction.active && (
-                                            <button
-                                                className={styles.dangerBtn}
-                                                onClick={() => {
-                                                        const payment = payments.find(p => p.auctionId === auction.id);
-                                                        const paymentLocked = payment &&
-                                                            (payment.status === 'HELD' || payment.status === 'RELEASED');
-                                                        const delivery = deliveries.find(d => d.auctionId === auction.id);
-                                                        const deliveryLocked = delivery &&
-                                                            delivery.status !== 'PENDING' && delivery.status !== 'CANCELLED';
+                                        {/* Delete - visible when payment is not locked and delivery not in progress */}
+                                        {(() => {
+                                            const auctionPayment = payments.find(p => p.auctionId === auction.id);
+                                            const paymentLocked = auctionPayment &&
+                                                (auctionPayment.status === 'HELD' ||
+                                                auctionPayment.status === 'RELEASED');
+                                            const auctionDelivery = deliveries.find(d => d.auctionId === auction.id);
+                                            const deliveryLocked = auctionDelivery &&
+                                                auctionDelivery.status !== 'PENDING' &&
+                                                auctionDelivery.status !== 'CANCELLED';
 
-                                                        const canDelete = !paymentLocked && !deliveryLocked;
+                                            const canDelete = !paymentLocked && !deliveryLocked;
 
-                                                        return canDelete ? (
-                                                            <button
-                                                                className={styles.dangerBtn}
-                                                                onClick={() => handleDeleteAuction(auction.id)}
-                                                            >
-                                                                Delete
-                                                            </button>
-                                                        ) : null;
-                                                    }
-                                                }
-                                            >
-                                                Delete
-                                            </button>
-                                        )}
+                                            return canDelete ? (
+                                                <button
+                                                    className={styles.dangerBtn}
+                                                    onClick={() => handleDeleteAuction(auction.id)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            ) : null;
+                                        })()}
                                     </div>
                                 </div>
                             );

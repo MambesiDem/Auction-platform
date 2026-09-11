@@ -143,4 +143,8 @@ public class DeliveryService {
                 .orElseThrow(() -> new RuntimeException("Seller not found"));
         return deliveryRepository.findBySellerId(seller.getId());
     }
+
+    public List<Delivery> getAllDeliveries() {
+        return deliveryRepository.findAll();
+    }
 }

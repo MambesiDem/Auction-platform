@@ -72,4 +72,12 @@ public class UserController {
     public List<UserResponse> getAllUsers() {
         return userService.getAllUsers();
     }
+    @PostMapping("/create-admin")
+    public UserResponse createAdmin(@Valid @RequestBody UserRequest request) {
+        return userService.createAdmin(
+                request.getFullName(),
+                request.getEmail(),
+                request.getPassword()
+        );
+    }
 }

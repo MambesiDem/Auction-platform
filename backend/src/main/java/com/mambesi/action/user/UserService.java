@@ -71,15 +71,21 @@ public class UserService {
     }
 
     public UserResponse createAdmin(String fullName, String email, String password) {
+        System.out.println("Creating admin: " + email);
+
         if (userRepository.existsByEmail(email)) {
             throw new RuntimeException("Email already in use.");
         }
+
         User admin = new User();
         admin.setFullName(fullName);
         admin.setEmail(email);
         admin.setPassword(passwordEncoder.encode(password));
         admin.setRole(Role.ADMIN);
+
         User saved = userRepository.save(admin);
+        System.out.println("Admin created: " + saved.getId());
+
         return new UserResponse(
                 saved.getId(),
                 saved.getFullName(),

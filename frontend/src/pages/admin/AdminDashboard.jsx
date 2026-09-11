@@ -23,7 +23,7 @@ export default function AdminDashboard() {
             const [usersRes, auctionsRes, deliveriesRes, paymentsRes] = await Promise.all([
                 axiosInstance.get('/api/users'),
                 axiosInstance.get('/api/auctions'),
-                axiosInstance.get('/api/deliveries/pending'),
+                axiosInstance.get('/api/deliveries'),
                 axiosInstance.get('/api/payments'),
             ]);
             setUsers(usersRes.data);

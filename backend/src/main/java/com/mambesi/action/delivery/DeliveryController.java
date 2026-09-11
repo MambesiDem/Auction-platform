@@ -92,6 +92,15 @@ public class DeliveryController {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+    @GetMapping
+    public List<DeliveryResponse> getAllDeliveries() {
+        return deliveryService.getAllDeliveries()
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+
 
     private String extractEmail(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");

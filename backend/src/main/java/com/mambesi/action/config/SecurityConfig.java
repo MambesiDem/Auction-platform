@@ -74,6 +74,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/deliveries/my-purchases").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET, "/api/deliveries/my-deliveries").hasAuthority("DRIVER")
                         .requestMatchers(HttpMethod.GET, "/api/deliveries/pending").hasAuthority("DRIVER")
+                        .requestMatchers(HttpMethod.GET, "/api/deliveries").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/deliveries/**").hasAuthority("DRIVER")
 
                         // Payment endpoints

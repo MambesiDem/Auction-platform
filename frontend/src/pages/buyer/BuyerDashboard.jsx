@@ -19,7 +19,7 @@ export default function BuyerDashboard() {
     const [loading, setLoading] = useState(true);
     const [timers, setTimers] = useState({});
     const [payments, setPayments] = useState([]);
-    const [paymentTimers, setPaymentTimers] = useState([]);
+    const [paymentTimers, setPaymentTimers] = useState({});
     const [myLosses, setMyLosses] = useState([]);
 
     const fetchData = useCallback(async () => {
@@ -59,21 +59,14 @@ export default function BuyerDashboard() {
                     ));
                 });
 
-                client.subscribe('/topic/auction-closed', (message) => {
-                   
+                client.subscribe('/topic/auction-closed', () => {
                     const retryFetch = (attempt) => {
-                        const delay = attempt * 2000; //2s,4s,6s,8s,10s
-                        setTimeout(() => {
-                            fetchData();
-                        }, delay);
+                        const delay = attempt * 2000;
+                        setTimeout(() => { fetchData(); }, delay);
                     };
-
-                    for (let i = 1; i <= 5; i++) {
-                        retryFetch(i);
-                    }
+                    for (let i = 1; i <= 5; i++) { retryFetch(i); }
                 });
 
-                // Refresh when auction is reassigned to second bidder
                 client.subscribe('/topic/auction-reassigned', () => {
                     fetchData();
                 });
@@ -106,9 +99,7 @@ export default function BuyerDashboard() {
 
     // Poll every 30 seconds as fallback
     useEffect(() => {
-        const poll = setInterval(() => {
-            fetchData();
-        }, 30000);
+        const poll = setInterval(() => { fetchData(); }, 30000);
         return () => clearInterval(poll);
     }, [fetchData]);
 
@@ -118,10 +109,7 @@ export default function BuyerDashboard() {
             a => a.paymentDeadline && new Date(a.paymentDeadline) > new Date()
         );
         if (!hasActiveDeadline) return;
-
-        const poll = setInterval(() => {
-            fetchData();
-        }, 30000);
+        const poll = setInterval(() => { fetchData(); }, 30000);
         return () => clearInterval(poll);
     }, [myWins, fetchData]);
 
@@ -135,7 +123,7 @@ export default function BuyerDashboard() {
         }
     };
 
-    // Auction countdown timers — upcoming, live, ended
+    // Auction countdown timers
     useEffect(() => {
         const interval = setInterval(() => {
             const updated = {};
@@ -229,8 +217,8 @@ export default function BuyerDashboard() {
                 </p>
 
                 <div className={styles.stats}>
-                    <StatCard label="Active bids"       value={activeBids} />
-                    <StatCard label="Auctions won"      value={myWins.length} />
+                    <StatCard label="Active bids"        value={activeBids} />
+                    <StatCard label="Auctions won"       value={myWins.length} />
                     <StatCard label="Losses"             value={myLosses.length} />
                     <StatCard label="Pending deliveries" value={pendingDeliveries} />
                 </div>
@@ -250,7 +238,22 @@ export default function BuyerDashboard() {
 
                             return (
                                 <div key={auction.id} className={styles.row}>
-                                    <div>
+                                    {/* Image thumbnail */}
+                                    {auction.imageUrl && (
+                                        <img
+                                            src={auction.imageUrl}
+                                            alt={auction.title}
+                                            style={{
+                                                width: '56px',
+                                                height: '56px',
+                                                objectFit: 'cover',
+                                                borderRadius: '8px',
+                                                border: '0.5px solid #e5e7eb',
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                    )}
+                                    <div style={{ flex: 1 }}>
                                         <p className={styles.rowTitle}>{auction.title}</p>
                                         <p className={styles.rowMeta}>
                                             Started at R{auction.startingPrice?.toLocaleString()}
@@ -306,13 +309,27 @@ export default function BuyerDashboard() {
 
                             return (
                                 <div key={auction.id} className={styles.row}>
-                                    <div>
+                                    {/* Image thumbnail */}
+                                    {auction.imageUrl && (
+                                        <img
+                                            src={auction.imageUrl}
+                                            alt={auction.title}
+                                            style={{
+                                                width: '56px',
+                                                height: '56px',
+                                                objectFit: 'cover',
+                                                borderRadius: '8px',
+                                                border: '0.5px solid #e5e7eb',
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                    )}
+                                    <div style={{ flex: 1 }}>
                                         <p className={styles.rowTitle}>{auction.title}</p>
                                         <p className={styles.rowMeta}>
                                             Won for R{auction.currentPrice?.toLocaleString()}
                                         </p>
 
-                                        {/* Payment countdown timer */}
                                         {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
                                             <p style={{
                                                 fontSize: '12px',
@@ -336,7 +353,6 @@ export default function BuyerDashboard() {
                                     </div>
 
                                     <div className={styles.rowRight}>
-                                        {/* Pay now button */}
                                         {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
                                             <button
                                                 className={styles.bidBtn}
@@ -346,7 +362,6 @@ export default function BuyerDashboard() {
                                             </button>
                                         )}
 
-                                        {/* Payment status badge */}
                                         {payment && (
                                             <span className={`${styles.statusPill} ${
                                                 payment.status === 'HELD'     ? styles.statusTransit :
@@ -361,14 +376,12 @@ export default function BuyerDashboard() {
                                             </span>
                                         )}
 
-                                        {/* Delivery status badge */}
                                         {delivery && (
                                             <span className={`${styles.statusPill} ${getStatusStyle(delivery.status)}`}>
                                                 {formatStatus(delivery.status)}
                                             </span>
                                         )}
 
-                                        {/* Cancel order button */}
                                         {payment && payment.status === 'HELD' && (
                                             (() => {
                                                 const canCancel = !delivery ||
@@ -426,6 +439,7 @@ export default function BuyerDashboard() {
                         ))
                     )}
                 </div>
+
                 {/* My Losses */}
                 <div className={styles.section}>
                     <div className={styles.sectionHeader}>
@@ -439,7 +453,22 @@ export default function BuyerDashboard() {
                     ) : (
                         myLosses.map(auction => (
                             <div key={auction.id} className={styles.row}>
-                                <div>
+                                {/* Image thumbnail */}
+                                {auction.imageUrl && (
+                                    <img
+                                        src={auction.imageUrl}
+                                        alt={auction.title}
+                                        style={{
+                                            width: '56px',
+                                            height: '56px',
+                                            objectFit: 'cover',
+                                            borderRadius: '8px',
+                                            border: '0.5px solid #e5e7eb',
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                )}
+                                <div style={{ flex: 1 }}>
                                     <p className={styles.rowTitle}>{auction.title}</p>
                                     <p className={styles.rowMeta}>
                                         Final price: R{auction.currentPrice?.toLocaleString()}

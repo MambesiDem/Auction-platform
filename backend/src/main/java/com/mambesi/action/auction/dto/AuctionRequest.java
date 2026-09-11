@@ -20,9 +20,12 @@ public class AuctionRequest {
     @NotNull(message = "End time is required")
     private LocalDateTime endTime;
 
+    private String imageUrl;
+
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public double getStartingPrice() { return startingPrice; }
     public LocalDateTime getStartTime() { return startTime; }
     public LocalDateTime getEndTime() { return endTime; }
+    public String getImageUrl() { return imageUrl; }
 }

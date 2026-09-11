@@ -15,11 +15,13 @@ public class AuctionResponse {
     private String ownerEmail;
     private String winnerEmail;
     private LocalDateTime paymentDeadline;
+    private String imageUrl;
 
     public AuctionResponse(UUID id, String title, String description,
                            double currentPrice, boolean active,
                            LocalDateTime startTime, LocalDateTime endTime,
-                           String ownerEmail, String winnerEmail, LocalDateTime paymentDeadline) {
+                           String ownerEmail, String winnerEmail, LocalDateTime paymentDeadline,
+                           String imageUrl) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -30,6 +32,7 @@ public class AuctionResponse {
         this.ownerEmail = ownerEmail;
         this.winnerEmail = winnerEmail;
         this.paymentDeadline = paymentDeadline;
+        this.imageUrl = imageUrl;
     }
 
     public UUID getId() {

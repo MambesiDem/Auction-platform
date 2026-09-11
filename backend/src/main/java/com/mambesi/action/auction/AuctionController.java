@@ -29,9 +29,9 @@ public class AuctionController {
     @PostMapping
     public AuctionResponse createAuction(@Valid @RequestBody AuctionRequest request,
                                          HttpServletRequest httpRequest) {
-
-        String authHeader = httpRequest.getHeader("Authorization");
-        String email = jwtService.extractEmail(authHeader.substring(7));
+        String email = jwtService.extractEmail(
+                httpRequest.getHeader("Authorization").substring(7)
+        );
 
         AuctionItem item = new AuctionItem();
         item.setTitle(request.getTitle());
@@ -39,9 +39,9 @@ public class AuctionController {
         item.setStartingPrice(request.getStartingPrice());
         item.setStartTime(request.getStartTime());
         item.setEndTime(request.getEndTime());
+        item.setImageUrl(request.getImageUrl());
 
         AuctionItem saved = auctionService.createAuction(item, email);
-
         return mapToResponse(saved);
     }
 
@@ -95,7 +95,8 @@ public class AuctionController {
                 item.getEndTime(),
                 item.getOwner() != null ? item.getOwner().getEmail() : null,
                 item.getWinner() != null ? item.getWinner().getEmail() : null,
-                item.getPaymentDeadline()
+                item.getPaymentDeadline(),
+                item.getImageUrl()
         );
     }
     @PutMapping("/{id}/close")

@@ -49,6 +49,7 @@ public class AuctionService {
         User owner = userRepository.findByEmail(ownerEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         item.setOwner(owner);
+        item.setActive(true);
         return auctionRepository.save(item);
     }
 

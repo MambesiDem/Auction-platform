@@ -49,6 +49,9 @@ public class AuctionItem {
     @JoinColumn(name = "winner_id")
     private User winner;
 
+    @Column
+    private String imageUrl;
+
     @PrePersist
     protected void onCreate() {
         this.currentPrice = this.startingPrice;
@@ -152,7 +155,8 @@ public class AuctionItem {
         return isActive;
     }
 
-
     public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }
 
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }

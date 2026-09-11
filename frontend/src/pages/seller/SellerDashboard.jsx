@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/Navbar';
 import StatCard from '../../components/StatCard';
 import styles from './SellerDashboard.module.css';
+import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 
 const EMPTY_FORM = {
     title: '',
@@ -11,6 +12,8 @@ const EMPTY_FORM = {
     startingPrice: '',
     startTime: '',
     endTime: '',
+    imageFile: null,
+    imagePreview: null,
 };
 
 export default function SellerDashboard() {
@@ -94,13 +97,22 @@ export default function SellerDashboard() {
 
         try {
             setFormLoading(true);
+
+            // Upload image to Cloudinary first if one was selected
+            let imageUrl = null;
+            if (form.imageFile) {
+                imageUrl = await uploadToCloudinary(form.imageFile);
+            }
+
             await axiosInstance.post('/api/auctions', {
                 title,
                 description,
                 startingPrice: parseFloat(startingPrice),
                 startTime: startTime + ':00',
                 endTime: endTime + ':00',
+                imageUrl,
             });
+
             setForm(EMPTY_FORM);
             setFormSuccess('Auction created successfully.');
             fetchData();
@@ -109,6 +121,27 @@ export default function SellerDashboard() {
         } finally {
             setFormLoading(false);
         }
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            setFormError('Please select an image file.');
+            return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) {
+            setFormError('Image must be smaller than 5MB.');
+            return;
+        }
+
+        setForm({
+            ...form,
+            imageFile: file,
+            imagePreview: URL.createObjectURL(file)
+        });
     };
 
     const handleCreateDelivery = async (auctionId) => {
@@ -241,6 +274,52 @@ export default function SellerDashboard() {
                                     value={form.description}
                                     onChange={handleChange}
                                 />
+                            </div>
+
+                            <div className={`${styles.field} ${styles.full}`}>
+                                <label className={styles.label}>Item image (optional)</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    style={{
+                                        width: '100%',
+                                        padding: '6px 0',
+                                        fontSize: '13px',
+                                        color: '#4b5563',
+                                    }}
+                                />
+                                {form.imagePreview && (
+                                    <div style={{ marginTop: '10px' }}>
+                                        <img
+                                            src={form.imagePreview}
+                                            alt="Preview"
+                                            style={{
+                                                width: '120px',
+                                                height: '90px',
+                                                objectFit: 'cover',
+                                                borderRadius: '8px',
+                                                border: '0.5px solid #e5e7eb'
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm({ ...form, imageFile: null, imagePreview: null })}
+                                            style={{
+                                                display: 'block',
+                                                marginTop: '6px',
+                                                fontSize: '12px',
+                                                color: '#b91c1c',
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: 0
+                                            }}
+                                        >
+                                            Remove image
+                                        </button>
+                                    </div>
+                                )}
                             </div>
 
                             <div className={styles.field}>

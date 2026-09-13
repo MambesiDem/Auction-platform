@@ -71,4 +71,6 @@ public class AuctionResponse {
         return winnerEmail;
     }
     public LocalDateTime getPaymentDeadline() { return paymentDeadline; }
+
+    public String getImageUrl() { return imageUrl; }
 }

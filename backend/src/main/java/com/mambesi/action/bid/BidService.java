@@ -7,6 +7,7 @@ import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
 import jakarta.persistence.OptimisticLockException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,12 @@ public class BidService {
     private final UserRepository userRepository;
 
     private final AuctionService auctionService;
+
+    @Value("${auction.extension.threshold-minutes:5}")
+    private int extensionThresholdMinutes;
+
+    @Value("${auction.extension.extension-minutes:5}")
+    private int extensionMinutes;
 
 
     @Autowired
@@ -75,11 +82,25 @@ public class BidService {
 
             Bid savedBid = bidRepository.save(bid);
 
+            // Auction extension — if bid placed within threshold minutes of end time, extend
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime extensionCutoff = auction.getEndTime()
+                    .minusMinutes(extensionThresholdMinutes);
+
+            if (now.isAfter(extensionCutoff)) {
+                LocalDateTime newEndTime = auction.getEndTime()
+                        .plusMinutes(extensionMinutes);
+                auction.setEndTime(newEndTime);
+                auctionRepository.save(auction);
+                System.out.println("Auction extended to: " + newEndTime);
+            }
+
             BidMessage message = new BidMessage();
             message.setAuctionId(auctionId.toString());
             message.setBidderEmail(userEmail);
             message.setAmount(amount);
             message.setTimestamp(savedBid.getTimestamp().toString());
+            message.setNewEndTime(auction.getEndTime().toString());
 
             messagingTemplate.convertAndSend("/topic/bids", message);
 

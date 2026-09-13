@@ -52,11 +52,18 @@ export default function BuyerDashboard() {
             onConnect: () => {
                 client.subscribe('/topic/bids', (message) => {
                     const bid = JSON.parse(message.body);
-                    setAuctions(prev => prev.map(a =>
-                        a.id === bid.auctionId
-                            ? { ...a, currentPrice: bid.amount }
-                            : a
-                    ));
+                    setAuctions(prev => prev.map(a => {
+                        if (a.id === bid.auctionId) {
+                            const wasExtended = bid.newEndTime && bid.newEndTime !== a.endTime;
+                            return {
+                                ...a,
+                                currentPrice: bid.amount,
+                                endTime: bid.newEndTime ? bid.newEndTime : a.endTime,
+                                extended: wasExtended || a.extended,
+                            };
+                        }
+                        return a;
+                    }));
                 });
 
                 client.subscribe('/topic/auction-closed', () => {
@@ -269,6 +276,15 @@ export default function BuyerDashboard() {
                                             styles.timer
                                         }`}>
                                             {timerInfo.label}
+                                            {auction.extended && (
+                                                <span style={{
+                                                    fontSize: '10px',
+                                                    marginLeft: '4px',
+                                                    color: '#633806'
+                                                }}>
+                                                    +{extensionMinutes}min
+                                                </span>
+                                            )}
                                         </span>
                                         <span className={styles.price}>
                                             R{auction.currentPrice?.toLocaleString()}

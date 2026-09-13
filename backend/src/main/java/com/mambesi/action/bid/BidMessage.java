@@ -7,6 +7,9 @@ public class BidMessage {
     private double amount;
     private String timestamp;
 
+    private String newEndTime;
+
+
     public BidMessage(String auctionId, String bidderEmail, double amount, String timestamp) {
         this.auctionId = auctionId;
         this.bidderEmail = bidderEmail;
@@ -48,4 +51,7 @@ public class BidMessage {
     public void setTimestamp(String timestamp) {
         this.timestamp = timestamp;
     }
+
+    public String getNewEndTime() { return newEndTime; }
+    public void setNewEndTime(String newEndTime) { this.newEndTime = newEndTime; }
 }

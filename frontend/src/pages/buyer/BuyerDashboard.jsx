@@ -282,7 +282,7 @@ export default function BuyerDashboard() {
                                                     marginLeft: '4px',
                                                     color: '#633806'
                                                 }}>
-                                                    +{extensionMinutes}min
+                                                    +5min
                                                 </span>
                                             )}
                                         </span>

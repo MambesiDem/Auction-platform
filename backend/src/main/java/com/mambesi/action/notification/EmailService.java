@@ -20,6 +20,9 @@ public class EmailService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
+    @Value("${app.test-email-override:}")
+    private String testEmailOverride;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -27,15 +30,18 @@ public class EmailService {
     @Async
     public void sendEmail(String to, String subject, String body) {
         try {
+            String recipient = (testEmailOverride != null && !testEmailOverride.isEmpty())
+                    ? testEmailOverride
+                    : to;
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
-            message.setTo(to);
+            message.setTo(recipient);
             message.setSubject("[" + appName + "] " + subject);
             message.setText(body);
             mailSender.send(message);
-            System.out.println("Email sent to: " + to);
+            System.out.println("Email sent to: " + recipient);
         } catch (Exception e) {
-            System.out.println("Email failed to: " + to + " — " + e.getMessage());
+            System.out.println("Email failed: " + e.getMessage());
         }
     }
 

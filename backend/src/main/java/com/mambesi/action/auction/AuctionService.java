@@ -3,6 +3,7 @@ package com.mambesi.action.auction;
 import com.mambesi.action.bid.Bid;
 import com.mambesi.action.bid.BidMessage;
 import com.mambesi.action.bid.BidRepository;
+import com.mambesi.action.notification.EmailService;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
 import org.springframework.stereotype.Service;
@@ -31,18 +32,22 @@ public class AuctionService {
     private final SimpMessagingTemplate messagingTemplate;
     private final DeliveryRepository deliveryRepository;
 
+    private final EmailService emailService;
+
     public AuctionService(AuctionRepository auctionRepository,
                           UserRepository userRepository,
                           BidRepository bidRepository,
-                        PaymentRepository paymentRepository,
+                          PaymentRepository paymentRepository,
                           DeliveryRepository deliveryRepository,
-                          SimpMessagingTemplate messagingTemplate) {
+                          SimpMessagingTemplate messagingTemplate,
+                          EmailService emailService) {
         this.auctionRepository = auctionRepository;
         this.userRepository = userRepository;
         this.bidRepository = bidRepository;
         this.paymentRepository = paymentRepository;
         this.deliveryRepository = deliveryRepository;
         this.messagingTemplate = messagingTemplate;
+        this.emailService = emailService;
     }
 
     public AuctionItem createAuction(AuctionItem item, String ownerEmail) {
@@ -137,6 +142,15 @@ public class AuctionService {
             auction.setWinner(highestBid.getBidder());
             // Give winner 15 minutes to pay
             auction.setPaymentDeadline(LocalDateTime.now().plusMinutes(15));
+
+            // Send winner email
+            emailService.sendAuctionWonEmail(
+                    highestBid.getBidder().getEmail(),
+                    auction.getTitle(),
+                    highestBid.getAmount(),
+                    15
+            );
+
         } else {
             auction.setWinner(null);
             auction.setPaymentDeadline(null);

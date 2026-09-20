@@ -2,6 +2,7 @@ package com.mambesi.action.delivery;
 
 import com.mambesi.action.auction.AuctionItem;
 import com.mambesi.action.auction.AuctionRepository;
+import com.mambesi.action.notification.EmailService;
 import com.mambesi.action.payment.PaymentService;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
@@ -24,16 +25,20 @@ public class DeliveryService {
 
     private final PaymentRepository paymentRepository;
 
+    private final EmailService emailService;
+
     public DeliveryService(DeliveryRepository deliveryRepository,
                            AuctionRepository auctionRepository,
                            UserRepository userRepository,
                            PaymentService paymentService,
-                           PaymentRepository paymentRepository) {
+                           PaymentRepository paymentRepository,
+                           EmailService emailService) {
         this.deliveryRepository = deliveryRepository;
         this.auctionRepository = auctionRepository;
         this.userRepository = userRepository;
         this.paymentService = paymentService;
         this.paymentRepository = paymentRepository;
+        this.emailService = emailService;
     }
 
     // Seller creates a delivery request after auction closes
@@ -109,6 +114,13 @@ public class DeliveryService {
 
         delivery.setStatus(newStatus);
         Delivery saved = deliveryRepository.save(delivery);
+
+        // Send delivery status email to buyer
+        emailService.sendDeliveryStatusEmail(
+                delivery.getBuyer().getEmail(),
+                delivery.getAuctionItem().getTitle(),
+                newStatus.name()
+        );
 
         // Schedule auto-release 5 minutes after delivery confirmed
         if (newStatus == DeliveryStatus.DELIVERED) {

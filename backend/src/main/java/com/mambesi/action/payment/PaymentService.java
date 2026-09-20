@@ -4,6 +4,7 @@ import com.mambesi.action.auction.AuctionItem;
 import com.mambesi.action.auction.AuctionRepository;
 import com.mambesi.action.delivery.DeliveryRepository;
 import com.mambesi.action.delivery.DeliveryStatus;
+import com.mambesi.action.notification.EmailService;
 import com.mambesi.action.payment.dto.PaymentResponse;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
@@ -55,14 +56,20 @@ public class PaymentService {
     @Value("${platform.commission}")
     private double commissionRate;
 
+    private final EmailService emailService;
+
     public PaymentService(PaymentRepository paymentRepository,
                           AuctionRepository auctionRepository,
-                          UserRepository userRepository, DeliveryRepository deliveryRepository, TaskScheduler taskScheduler) {
+                          UserRepository userRepository,
+                          DeliveryRepository deliveryRepository,
+                          TaskScheduler taskScheduler,
+                          EmailService emailService) {
         this.paymentRepository = paymentRepository;
         this.auctionRepository = auctionRepository;
         this.userRepository = userRepository;
         this.deliveryRepository = deliveryRepository;
         this.taskScheduler = taskScheduler;
+        this.emailService = emailService;
     }
 
     @Async
@@ -221,6 +228,19 @@ public class PaymentService {
                 payment.setPayfastPaymentId(pfPaymentId);
                 payment.setPaidAt(LocalDateTime.now());
                 System.out.println("Payment HELD for: " + mPaymentId);
+
+                // Send confirmation emails
+                emailService.sendPaymentConfirmedEmail(
+                        payment.getBuyer().getEmail(),
+                        payment.getAuctionItem().getTitle(),
+                        payment.getTotalAmount()
+                );
+                emailService.sendSellerPaymentReceivedEmail(
+                        payment.getSeller().getEmail(),
+                        payment.getAuctionItem().getTitle(),
+                        payment.getSellerAmount()
+                );
+
             } else {
                 payment.setStatus(PaymentStatus.FAILED);
                 System.out.println("Payment FAILED for: " + mPaymentId);

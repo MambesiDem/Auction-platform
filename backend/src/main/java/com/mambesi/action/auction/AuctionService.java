@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import com.mambesi.action.delivery.DeliveryRepository;
 import com.mambesi.action.delivery.DeliveryStatus;
 import java.util.Optional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -124,6 +125,7 @@ public class AuctionService {
         return auctionRepository.findByWinnerId(user.getId());
     }
 
+    @Transactional
     public AuctionItem closeAuction(AuctionItem auction) {
 
         if (!auction.isActive()) {
@@ -183,6 +185,7 @@ public class AuctionService {
         return auctionRepository.save(auction);
     }
 
+    @Transactional
     public void expirePaymentAndReassign(UUID auctionId) {
         AuctionItem auction = auctionRepository.findById(auctionId)
                 .orElseThrow(() -> new RuntimeException("Auction not found"));
@@ -192,7 +195,6 @@ public class AuctionService {
         if (payment.isPresent() &&
                 (payment.get().getStatus() == PaymentStatus.HELD ||
                         payment.get().getStatus() == PaymentStatus.RELEASED)) {
-            System.out.println("Payment already completed for auction: " + auctionId);
             return;
         }
 

@@ -192,3 +192,36 @@
     color: #9ca3af;
     text-align: center;
 }
+
+@media (max-width: 768px) {
+    .main {
+        padding: 16px;
+    }
+
+    .stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .tableWrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table th,
+    .table td {
+        padding: 8px 12px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .sectionTitle {
+        font-size: 13px;
+    }
+}

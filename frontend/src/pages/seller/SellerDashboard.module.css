@@ -251,3 +251,60 @@
     color: #9ca3af;
     text-align: center;
 }
+
+@media (max-width: 768px) {
+    .main {
+        padding: 16px;
+    }
+
+    .stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .formGrid {
+        grid-template-columns: 1fr;
+        padding: 14px;
+    }
+
+    .field {
+        grid-column: 1 / -1;
+    }
+
+    .formBtnRow {
+        grid-column: 1 / -1;
+    }
+
+    .btnPrimary {
+        width: 100%;
+    }
+
+    .row {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 14px;
+    }
+
+    .rowRight {
+        flex-wrap: wrap;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .outlineBtn,
+    .dangerBtn {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .input,
+    .textarea {
+        font-size: 16px;
+    }
+}

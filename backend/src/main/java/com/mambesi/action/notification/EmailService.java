@@ -30,18 +30,19 @@ public class EmailService {
     @Async
     public void sendEmail(String to, String subject, String body) {
         try {
-            String recipient = (testEmailOverride != null && !testEmailOverride.isEmpty())
-                    ? testEmailOverride
-                    : to;
+            if (mailSender == null) {
+                System.out.println("Mail not configured — skipping email to: " + to);
+                return;
+            }
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
-            message.setTo(recipient);
+            message.setTo(to);
             message.setSubject("[" + appName + "] " + subject);
             message.setText(body);
             mailSender.send(message);
-            System.out.println("Email sent to: " + recipient);
+            System.out.println("Email sent to: " + to);
         } catch (Exception e) {
-            System.out.println("Email failed: " + e.getMessage());
+            System.out.println("Email failed to: " + to + " — " + e.getMessage());
         }
     }
 

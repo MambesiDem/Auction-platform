@@ -17,6 +17,7 @@ export default function BuyerHome() {
     const [myWins, setMyWins] = useState([]);
     const [deliveries, setDeliveries] = useState([]);
     const [payments, setPayments] = useState([]);
+    // eslint-disable-next-line no-unused-vars
     const [myLosses, setMyLosses] = useState([]);
     const [selectedAuction, setSelectedAuction] = useState(null);
     const [loading, setLoading] = useState(true);

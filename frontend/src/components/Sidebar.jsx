@@ -1,5 +1,4 @@
-// import { NavLink, useNavigate } from 'react-router-dom';
-// import { useAuth } from '../context/AuthContext';
+import { NavLink } from 'react-router-dom';
 import styles from './Sidebar.module.css';
 
 const buyerLinks = [
@@ -36,13 +35,9 @@ const driverLinks = [
 ];
 
 export default function Sidebar({ role }) {
-    // eslint-disable-next-line no-unused-vars
-    const { user, logout } = useAuth();
-
     const links = role === 'SELLER' ? sellerLinks
                 : role === 'DRIVER' ? driverLinks
                 : buyerLinks;
-
 
     return (
         <aside className={styles.sidebar}>

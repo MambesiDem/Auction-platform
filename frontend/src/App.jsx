@@ -10,7 +10,7 @@ import PaymentSuccess from './pages/buyer/PaymentSuccess';
 import PaymentCancel  from './pages/buyer/PaymentCancel';
 import BuyerHome from './pages/buyer/BuyerHome';
 
-const BuyerHome = lazy(() => import('./pages/buyer/BuyerHome'));
+const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
 const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
 const DriverDashboard = lazy(() => import('./pages/driver/DriverDashboard'));
 const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'));

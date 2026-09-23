@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import PaymentPage    from './pages/buyer/PaymentPage';
 import PaymentSuccess from './pages/buyer/PaymentSuccess';
 import PaymentCancel  from './pages/buyer/PaymentCancel';
+import BuyerHome from './pages/buyer/BuyerHome';
 
 const BuyerDashboard  = lazy(() => import('./pages/buyer/BuyerDashboard'));
 const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
@@ -39,7 +40,53 @@ export default function App() {
                         {/* Buyer only */}
                         <Route path="/buyer/dashboard" element={
                             <ProtectedRoute allowedRoles={['BUYER']}>
-                                <BuyerDashboard />
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/buyer/browse" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/bids" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/watchlist" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/orders" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/messages" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/profile" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/settings" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/payments" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/searches" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerHome />
                             </ProtectedRoute>
                         } />
 

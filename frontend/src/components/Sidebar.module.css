@@ -1,0 +1,137 @@
+.sidebar {
+    width: 220px;
+    min-height: 100vh;
+    background: var(--white);
+    border-right: 0.5px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+    overflow-y: auto;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 16px;
+    border-bottom: 0.5px solid var(--border);
+}
+
+.logoIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--navy) 50%, var(--green) 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.logoText {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--navy);
+}
+
+.logoTagline {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.nav {
+    flex: 1;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.navLink {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-secondary);
+    transition: all 0.15s;
+    cursor: pointer;
+}
+
+.navLink:hover {
+    background: var(--bg);
+    color: var(--text-primary);
+}
+
+.navLinkActive {
+    background: var(--green-light);
+    color: var(--green-dark);
+    font-weight: 500;
+}
+
+.navIcon {
+    font-size: 15px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.navLabel {
+    flex: 1;
+}
+
+.bottom {
+    padding: 16px;
+    border-top: 0.5px solid var(--border);
+}
+
+.localBadge {
+    background: var(--navy);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.localTitle {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.localSub {
+    font-size: 11px;
+    opacity: 0.75;
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.learnMore {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.4);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.learnMore:hover {
+    background: rgba(255,255,255,0.15);
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        display: none;
+    }
+}

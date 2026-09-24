@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
-import Navbar from '../../components/Navbar';
-import StatCard from '../../components/StatCard';
-import BidModal from '../../components/BidModal';
+import axiosInstance from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
+import Navbar from '../components/Navbar';
+import StatCard from '../components/StatCard';
+import BidModal from '../components/BidModal';
 import styles from './BuyerDashboard.module.css';
 import { useNavigate } from 'react-router-dom';
 

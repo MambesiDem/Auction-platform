@@ -21,7 +21,12 @@ export default function TopBar({ onSearch }) {
                     type="text"
                     placeholder="Search for items, categories or sellers..."
                     className={styles.searchInput}
-                    onChange={e => onSearch && onSearch(e.target.value)}
+                    onChange={e => {
+                        if (onSearch) onSearch(e.target.value);
+                        if (e.target.value.trim()) {
+                            navigate(`/buyer/browse?q=${encodeURIComponent(e.target.value)}`);
+                        }
+                    }}
                 />
             </div>
 

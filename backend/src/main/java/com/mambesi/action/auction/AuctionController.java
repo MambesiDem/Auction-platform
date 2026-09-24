@@ -6,6 +6,7 @@ import com.mambesi.action.security.JwtService;
 import com.mambesi.action.user.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -121,5 +122,23 @@ public class AuctionController {
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @GetMapping("/my-active-bids")
+    public List<AuctionResponse> getMyActiveBids() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) auth.getPrincipal();
+        return auctionService.getMyActiveBids(user.getEmail())
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("/{id}/my-bid")
+    public ResponseEntity<Double> getMyHighestBid(@PathVariable UUID id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) auth.getPrincipal();
+        Double amount = auctionService.getMyHighestBid(id, user.getEmail());
+        return ResponseEntity.ok(amount != null ? amount : 0.0);
     }
 }

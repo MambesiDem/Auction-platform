@@ -18,4 +18,10 @@ public interface AuctionRepository extends JpaRepository<AuctionItem, UUID> {
     // Find closed auctions where a specific user bid but did not win
     @Query("SELECT DISTINCT b.auctionItem FROM Bid b WHERE b.bidder.id = :userId AND b.auctionItem.isActive = false AND (b.auctionItem.winner IS NULL OR b.auctionItem.winner.id != :userId)")
     List<AuctionItem> findLostAuctionsByBidderId(@Param("userId") UUID userId);
+
+    @Query("SELECT DISTINCT b.auctionItem FROM Bid b WHERE b.bidder.id = :userId AND b.auctionItem.isActive = true")
+    List<AuctionItem> findActiveBidsByBidderId(@Param("userId") UUID userId);
+
+    @Query("SELECT MAX(b.amount) FROM Bid b WHERE b.auctionItem.id = :auctionId AND b.bidder.id = :userId")
+    Double findHighestBidByUserAndAuction(@Param("auctionId") UUID auctionId, @Param("userId") UUID userId);
 }

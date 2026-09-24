@@ -245,4 +245,16 @@ public class AuctionService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return auctionRepository.findLostAuctionsByBidderId(user.getId());
     }
+
+    public List<AuctionItem> getMyActiveBids(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return auctionRepository.findActiveBidsByBidderId(user.getId());
+    }
+
+    public Double getMyHighestBid(UUID auctionId, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return auctionRepository.findHighestBidByUserAndAuction(auctionId, user.getId());
+    }
 }

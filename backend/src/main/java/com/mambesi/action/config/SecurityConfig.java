@@ -67,6 +67,8 @@ public class SecurityConfig {
                         // Bid endpoints
                         .requestMatchers(HttpMethod.POST, "/api/bids/**").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET, "/api/bids/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/auctions/my-active-bids").hasAuthority("BUYER")
+                        .requestMatchers(HttpMethod.GET, "/api/auctions/*/my-bid").hasAuthority("BUYER")
 
                         // Delivery endpoints
                         .requestMatchers(HttpMethod.POST, "/api/deliveries").hasAuthority("SELLER")

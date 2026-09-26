@@ -1,9 +1,7 @@
-import { NavLink } from 'react-router-dom';
-import styles from './Sidebar.module.css';
 import { useState, useEffect } from 'react';
+import { NavLink } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
-
-const [unread, setUnread] = useState(0);
+import styles from './Sidebar.module.css';
 
 const buyerLinks = [
     { to: '/buyer/dashboard', icon: '🏠', label: 'Home' },
@@ -11,7 +9,7 @@ const buyerLinks = [
     { to: '/buyer/bids', icon: '⚡', label: 'My Bids' },
     { to: '/buyer/watchlist', icon: '❤️', label: 'Watchlist' },
     { to: '/buyer/orders', icon: '📦', label: 'Orders' },
-    { to: '/buyer/messages', icon: '✉️', label: 'Messages', badge: unread },
+    { to: '/buyer/messages', icon: '✉️', label: 'Messages', showBadge: true },
     { to: '/buyer/searches', icon: '🔖', label: 'Saved Searches' },
     { to: '/buyer/payments', icon: '💳', label: 'Payments' },
     { to: '/buyer/profile', icon: '👤', label: 'Profile' },
@@ -23,7 +21,7 @@ const sellerLinks = [
     { to: '/seller/listings', icon: '🏷️', label: 'Listings' },
     { to: '/seller/orders', icon: '📦', label: 'Orders' },
     { to: '/seller/analytics', icon: '📊', label: 'Analytics' },
-    { to: '/seller/messages', icon: '✉️', label: 'Messages' },
+    { to: '/seller/messages', icon: '✉️', label: 'Messages', showBadge: true },
     { to: '/seller/payments', icon: '💳', label: 'Payments' },
     { to: '/seller/profile', icon: '👤', label: 'Profile' },
     { to: '/seller/settings', icon: '⚙️', label: 'Settings' },
@@ -38,20 +36,21 @@ const driverLinks = [
     { to: '/driver/settings', icon: '⚙️', label: 'Settings' },
 ];
 
-useEffect(() => {
-    axiosInstance.get('/api/messages/unread')
-        .then(res => setUnread(res.data.count || 0))
-        .catch(() => {});
-}, []);
-
 export default function Sidebar({ role }) {
+    const [unread, setUnread] = useState(0);
+
+    useEffect(() => {
+        axiosInstance.get('/api/messages/unread')
+            .then(res => setUnread(res.data.count || 0))
+            .catch(() => {});
+    }, []);
+
     const links = role === 'SELLER' ? sellerLinks
                 : role === 'DRIVER' ? driverLinks
                 : buyerLinks;
 
     return (
         <aside className={styles.sidebar}>
-            {/* Logo */}
             <div className={styles.logo}>
                 <div className={styles.logoIcon}>C</div>
                 <div>
@@ -60,7 +59,6 @@ export default function Sidebar({ role }) {
                 </div>
             </div>
 
-            {/* Nav links */}
             <nav className={styles.nav}>
                 {links.map(link => (
                     <NavLink
@@ -72,15 +70,13 @@ export default function Sidebar({ role }) {
                     >
                         <span className={styles.navIcon}>{link.icon}</span>
                         <span className={styles.navLabel}>{link.label}</span>
-                        {link.badge > 0 && (
-                            <span className={styles.navBadge}>{link.badge}</span>
+                        {link.showBadge && unread > 0 && (
+                            <span className={styles.navBadge}>{unread}</span>
                         )}
                     </NavLink>
-                    
                 ))}
             </nav>
 
-            {/* Bottom section */}
             <div className={styles.bottom}>
                 <div className={styles.localBadge}>
                     <p className={styles.localTitle}>Local people.<br/>Real opportunities.</p>

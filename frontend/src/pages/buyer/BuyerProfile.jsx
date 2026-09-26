@@ -7,7 +7,7 @@ import TopBar from '../../components/TopBar';
 import styles from './BuyerProfile.module.css';
 
 export default function BuyerProfile() {
-    const { user, login } = useAuth();
+    const { user } = useAuth();
     const [fullName, setFullName] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');

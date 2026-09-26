@@ -95,6 +95,9 @@ public class SecurityConfig {
                         //Watchlist
                         .requestMatchers("/api/watchlist/**").hasAuthority("BUYER")
 
+                        //Message endpoints
+                        .requestMatchers("/api/messages/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

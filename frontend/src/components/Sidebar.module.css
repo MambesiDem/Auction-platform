@@ -130,6 +130,16 @@
     background: rgba(255,255,255,0.15);
 }
 
+.navBadge {
+    background: var(--green);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+}
+
 @media (max-width: 768px) {
     .sidebar {
         display: none;

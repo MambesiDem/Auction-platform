@@ -92,6 +92,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payments/status/**").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET, "/api/payments/health").permitAll()
 
+                        //Watchlist
+                        .requestMatchers("/api/watchlist/**").hasAuthority("BUYER")
+
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

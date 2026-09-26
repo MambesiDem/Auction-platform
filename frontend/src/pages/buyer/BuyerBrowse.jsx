@@ -20,6 +20,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function BuyerBrowse() {
+    const [watchlisted, setWatchlisted] = useState({});
     const { user } = useAuth();
     const [auctions, setAuctions] = useState([]);
     const [filtered, setFiltered] = useState([]);
@@ -113,6 +114,22 @@ export default function BuyerBrowse() {
 
         setFiltered(result);
     }, [auctions, search, category, sort, minPrice, maxPrice]);
+
+
+    const toggleWatchlist = async (e, auctionId) => {
+        e.stopPropagation();
+        try {
+            if (watchlisted[auctionId]) {
+                await axiosInstance.delete(`/api/watchlist/${auctionId}`);
+                setWatchlisted(prev => ({ ...prev, [auctionId]: false }));
+            } else {
+                await axiosInstance.post(`/api/watchlist/${auctionId}`);
+                setWatchlisted(prev => ({ ...prev, [auctionId]: true }));
+            }
+        } catch (err) {
+            console.error('Watchlist toggle failed', err);
+        }
+    };
 
     // Countdown timers
     useEffect(() => {
@@ -308,8 +325,12 @@ export default function BuyerBrowse() {
                                                 <span className={styles.extendedBadge}>+Extended</span>
                                             )}
                                             {/* Watchlist button */}
-                                            <button className={styles.wishlistBtn} title="Add to watchlist">
-                                                ♡
+                                            <button
+                                                className={styles.wishlistBtn}
+                                                onClick={(e) => toggleWatchlist(e, auction.id)}
+                                                title={watchlisted[auction.id] ? 'Remove from watchlist' : 'Add to watchlist'}
+                                            >
+                                                {watchlisted[auction.id] ? '❤️' : '♡'}
                                             </button>
                                         </div>
 

@@ -18,7 +18,7 @@ import BuyerMessages from './pages/buyer/BuyerMessages';
 import SellerHome from './pages/seller/SellerHome';
 
 // const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
-const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
+//const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
 const DriverDashboard = lazy(() => import('./pages/driver/DriverDashboard'));
 const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'));
 

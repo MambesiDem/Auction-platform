@@ -80,4 +80,10 @@ public class UserController {
                 request.getPassword()
         );
     }
+    @PutMapping("/me")
+    public UserResponse updateProfile(@RequestBody UpdateProfileRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) auth.getPrincipal();
+        return userService.updateProfile(user.getEmail(), request);
+    }
 }

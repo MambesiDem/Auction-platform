@@ -94,4 +94,27 @@ public class UserService {
                 saved.isBanned()
         );
     }
+    public UserResponse updateProfile(String email, UpdateProfileRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName());
+        }
+
+        if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
+            if (request.getCurrentPassword() == null ||
+                    !passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw new RuntimeException("Current password is incorrect.");
+            }
+            if (request.getNewPassword().length() < 8) {
+                throw new RuntimeException("New password must be at least 8 characters.");
+            }
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        }
+
+        User saved = userRepository.save(user);
+        return new UserResponse(saved.getId(), saved.getFullName(),
+                saved.getEmail(), saved.getRole(), saved.isBanned());
+    }
 }

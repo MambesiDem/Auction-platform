@@ -52,6 +52,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/users/create-admin").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/users/*/ban").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/users/*/unban").hasAuthority("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/users/me").authenticated()
 
                         // Auction endpoints - public GETs first
                         .requestMatchers(HttpMethod.GET, "/api/auctions").permitAll()

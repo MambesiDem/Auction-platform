@@ -12,6 +12,7 @@ import BuyerHome from './pages/buyer/BuyerHome';
 import BuyerBrowse from './pages/buyer/BuyerBrowse';
 import BuyerBids from './pages/buyer/BuyerBids';
 import BuyerOrders from './pages/buyer/BuyerOrders';
+import BuyerProfile from './pages/buyer/BuyerProfile';
 
 // const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
 const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
@@ -74,7 +75,7 @@ export default function App() {
                         } />
                         <Route path="/buyer/profile" element={
                             <ProtectedRoute allowedRoles={['BUYER']}>
-                                <BuyerHome />
+                                <BuyerProfile />
                             </ProtectedRoute>
                         } />
                         <Route path="/buyer/settings" element={

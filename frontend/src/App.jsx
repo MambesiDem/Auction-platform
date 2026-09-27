@@ -17,6 +17,7 @@ import BuyerWatchlist from './pages/buyer/BuyerWatchlist';
 import BuyerMessages from './pages/buyer/BuyerMessages';
 import SellerHome from './pages/seller/SellerHome';
 import SellerListings from './pages/seller/SellerListings';
+import SellerOrders from './pages/seller/SellerOrders';
 
 // const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
 //const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
@@ -112,7 +113,7 @@ export default function App() {
                         } />
                         <Route path="/seller/orders" element={
                             <ProtectedRoute allowedRoles={['SELLER']}>
-                                <SellerHome />
+                                <SellerOrders />
                             </ProtectedRoute>
                         } />
                         <Route path="/seller/analytics" element={

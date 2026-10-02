@@ -119,11 +119,6 @@ export default function App() {
                         } />
                         <Route path="/seller/analytics" element={
                             <ProtectedRoute allowedRoles={['SELLER']}>
-                                <SellerHome />
-                            </ProtectedRoute>
-                        } />
-                        <Route path="/seller/analytics" element={
-                            <ProtectedRoute allowedRoles={['SELLER']}>
                                 <SellerAnalytics />
                             </ProtectedRoute>
                         } />

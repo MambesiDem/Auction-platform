@@ -3,9 +3,13 @@ package com.mambesi.action.delivery;
 import com.mambesi.action.auction.AuctionItem;
 import com.mambesi.action.auction.AuctionRepository;
 import com.mambesi.action.notification.EmailService;
+import com.mambesi.action.order.Order;
+import com.mambesi.action.order.OrderService;
+import com.mambesi.action.order.OrderStatus;
 import com.mambesi.action.payment.PaymentService;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.mambesi.action.payment.Payment;
 import com.mambesi.action.payment.PaymentRepository;
@@ -26,6 +30,9 @@ public class DeliveryService {
     private final PaymentRepository paymentRepository;
 
     private final EmailService emailService;
+
+    @Autowired
+    private OrderService orderService;
 
     public DeliveryService(DeliveryRepository deliveryRepository,
                            AuctionRepository auctionRepository,
@@ -114,6 +121,27 @@ public class DeliveryService {
 
         delivery.setStatus(newStatus);
         Delivery saved = deliveryRepository.save(delivery);
+
+        try {
+            Order order = orderService.getByAuctionId(
+                    delivery.getAuctionItem().getId()
+            );
+            OrderStatus newOrderStatus = switch (newStatus) {
+                case ACCEPTED  -> OrderStatus.COLLECTION_PENDING;
+                case PICKED_UP -> OrderStatus.IN_TRANSIT;
+                case IN_TRANSIT -> OrderStatus.IN_TRANSIT;
+                case DELIVERED -> OrderStatus.DELIVERED;
+                default -> null;
+            };
+            if (newOrderStatus != null) {
+                orderService.transitionStatus(
+                        order.getId(), newOrderStatus,
+                        order.getLastActorEmail(), "Delivery status updated to " + newStatus
+                );
+            }
+        } catch (Exception e) {
+            System.out.println("Order sync failed: " + e.getMessage());
+        }
 
         // Send delivery status email to buyer
         emailService.sendDeliveryStatusEmail(

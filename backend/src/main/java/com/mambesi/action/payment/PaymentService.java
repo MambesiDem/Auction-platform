@@ -5,9 +5,13 @@ import com.mambesi.action.auction.AuctionRepository;
 import com.mambesi.action.delivery.DeliveryRepository;
 import com.mambesi.action.delivery.DeliveryStatus;
 import com.mambesi.action.notification.EmailService;
+import com.mambesi.action.order.Order;
+import com.mambesi.action.order.OrderService;
+import com.mambesi.action.order.OrderStatus;
 import com.mambesi.action.payment.dto.PaymentResponse;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
@@ -57,6 +61,9 @@ public class PaymentService {
     private double commissionRate;
 
     private final EmailService emailService;
+
+    @Autowired
+    private OrderService orderService;
 
     public PaymentService(PaymentRepository paymentRepository,
                           AuctionRepository auctionRepository,
@@ -227,9 +234,24 @@ public class PaymentService {
                 payment.setStatus(PaymentStatus.HELD);
                 payment.setPayfastPaymentId(pfPaymentId);
                 payment.setPaidAt(LocalDateTime.now());
-                System.out.println("Payment HELD for: " + mPaymentId);
+                paymentRepository.save(payment);
 
-                // Send confirmation emails
+                // Transition the Order to PREPARATION
+                try {
+                    Order order = orderService.getByAuctionId(
+                            payment.getAuctionItem().getId()
+                    );
+                    orderService.transitionStatus(
+                            order.getId(),
+                            OrderStatus.PREPARATION,
+                            "system",
+                            "Payment confirmed by PayFast"
+                    );
+                } catch (Exception e) {
+                    System.out.println("Order transition failed: " + e.getMessage());
+                }
+
+                // Send emails
                 emailService.sendPaymentConfirmedEmail(
                         payment.getBuyer().getEmail(),
                         payment.getAuctionItem().getTitle(),
@@ -240,8 +262,7 @@ public class PaymentService {
                         payment.getAuctionItem().getTitle(),
                         payment.getSellerAmount()
                 );
-
-            } else {
+            }else {
                 payment.setStatus(PaymentStatus.FAILED);
                 System.out.println("Payment FAILED for: " + mPaymentId);
             }

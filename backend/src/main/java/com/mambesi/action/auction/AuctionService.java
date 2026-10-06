@@ -4,8 +4,10 @@ import com.mambesi.action.bid.Bid;
 import com.mambesi.action.bid.BidMessage;
 import com.mambesi.action.bid.BidRepository;
 import com.mambesi.action.notification.EmailService;
+import com.mambesi.action.order.OrderService;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.mambesi.action.payment.Payment;
 import com.mambesi.action.payment.PaymentRepository;
@@ -34,6 +36,8 @@ public class AuctionService {
     private final DeliveryRepository deliveryRepository;
 
     private final EmailService emailService;
+    @Autowired
+    private OrderService orderService;
 
     public AuctionService(AuctionRepository auctionRepository,
                           UserRepository userRepository,
@@ -127,35 +131,35 @@ public class AuctionService {
 
     @Transactional
     public AuctionItem closeAuction(AuctionItem auction) {
-
-        if (!auction.isActive()) {
-            return auction;
-        }
+        if (!auction.isActive()) return auction;
 
         auction.setActive(false);
 
         List<Bid> bids = bidRepository.findByAuctionItemId(auction.getId());
-
         Bid highestBid = bids.stream()
                 .max(Comparator.comparingDouble(Bid::getAmount))
                 .orElse(null);
 
         if (highestBid != null) {
-            auction.setWinner(highestBid.getBidder());
-            // Give winner 15 minutes to pay
-            auction.setPaymentDeadline(LocalDateTime.now().plusMinutes(15));
-
-            // Send winner email
-            emailService.sendAuctionWonEmail(
-                    highestBid.getBidder().getEmail(),
-                    auction.getTitle(),
-                    highestBid.getAmount(),
-                    15
-            );
-
-        } else {
-            auction.setWinner(null);
-            auction.setPaymentDeadline(null);
+            // Check reserve price
+            if (auction.getReservePrice() > 0 &&
+                    highestBid.getAmount() < auction.getReservePrice()) {
+                // Reserve not met — no winner
+                auction.setWinner(null);
+            } else {
+                auction.setWinner(highestBid.getBidder());
+                // Create the Order — locks commission rate and payment deadline
+                orderService.createOrderForAuctionWin(
+                        auction, highestBid.getBidder(), 15
+                );
+                // Send winner email
+                emailService.sendAuctionWonEmail(
+                        highestBid.getBidder().getEmail(),
+                        auction.getTitle(),
+                        highestBid.getAmount(),
+                        15
+                );
+            }
         }
 
         return auctionRepository.save(auction);

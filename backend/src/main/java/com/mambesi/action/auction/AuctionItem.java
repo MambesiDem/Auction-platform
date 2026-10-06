@@ -61,6 +61,9 @@ public class AuctionItem {
     @Column(nullable = false)
     private double bidIncrement = 5.0;
 
+    @Column
+    private Double reservedPrice;
+
     @PrePersist
     protected void onCreate() {
         this.currentPrice = this.startingPrice;
@@ -174,4 +177,8 @@ public class AuctionItem {
     public void setExtensionDurationMinutes(int m) { this.extensionDurationMinutes = m; }
     public double getBidIncrement() { return bidIncrement; }
     public void setBidIncrement(double bidIncrement) { this.bidIncrement = bidIncrement; }
+
+    public double getReservePrice() {
+        return reservedPrice;
+    }
 }

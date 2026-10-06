@@ -42,6 +42,11 @@ public class AuctionController {
         item.setEndTime(request.getEndTime());
         item.setImageUrl(request.getImageUrl());
 
+        // Save policy at creation — these never change for this auction
+        item.setBidIncrement(request.getBidIncrement());
+        item.setExtensionThresholdMinutes(request.getExtensionThresholdMinutes());
+        item.setExtensionDurationMinutes(request.getExtensionDurationMinutes());
+
         AuctionItem saved = auctionService.createAuction(item, email);
         return mapToResponse(saved);
     }
@@ -97,7 +102,10 @@ public class AuctionController {
                 item.getOwner() != null ? item.getOwner().getEmail() : null,
                 item.getWinner() != null ? item.getWinner().getEmail() : null,
                 item.getPaymentDeadline(),
-                item.getImageUrl()
+                item.getImageUrl(),
+                item.getBidIncrement(),
+                item.getExtensionThresholdMinutes(),
+                item.getExtensionDurationMinutes()
         );
     }
     @PutMapping("/{id}/close")

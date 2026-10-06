@@ -32,7 +32,7 @@ public class BidController {
         String token = authHeader.substring(7);
         String email = jwtService.extractEmail(token);
 
-        Bid bid = bidService.placeBid(auctionId, email, request.getAmount());
+        Bid bid = bidService.placeBid(auctionId, request.getAmount(), email);
 
         return mapToResponse(bid);
     }

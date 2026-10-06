@@ -59,7 +59,10 @@ public class WatchlistController {
                 item.getStartTime(), item.getEndTime(),
                 item.getOwner() != null ? item.getOwner().getEmail() : null,
                 item.getWinner() != null ? item.getWinner().getEmail() : null,
-                item.getPaymentDeadline(), item.getImageUrl()
+                item.getPaymentDeadline(), item.getImageUrl(),
+                item.getBidIncrement(),
+                item.getExtensionThresholdMinutes(),
+                item.getExtensionDurationMinutes()
         );
     }
 }

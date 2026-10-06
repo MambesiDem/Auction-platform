@@ -16,12 +16,16 @@ public class AuctionResponse {
     private String winnerEmail;
     private LocalDateTime paymentDeadline;
     private String imageUrl;
+    private double bidIncrement;
+    private int extensionThresholdMinutes;
+    private int extensionDurationMinutes;
 
     public AuctionResponse(UUID id, String title, String description,
                            double currentPrice, boolean active,
                            LocalDateTime startTime, LocalDateTime endTime,
                            String ownerEmail, String winnerEmail, LocalDateTime paymentDeadline,
-                           String imageUrl) {
+                           String imageUrl, double bidIncrement,int extensionThresholdMinutes,
+                            int extensionDurationMinutes) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -33,6 +37,9 @@ public class AuctionResponse {
         this.winnerEmail = winnerEmail;
         this.paymentDeadline = paymentDeadline;
         this.imageUrl = imageUrl;
+        this.bidIncrement = bidIncrement;
+        this.extensionThresholdMinutes = extensionThresholdMinutes;
+        this.extensionDurationMinutes = extensionDurationMinutes;
     }
 
     public UUID getId() {
@@ -73,4 +80,7 @@ public class AuctionResponse {
     public LocalDateTime getPaymentDeadline() { return paymentDeadline; }
 
     public String getImageUrl() { return imageUrl; }
+    public double getBidIncrement() { return bidIncrement; }
+    public int getExtensionThresholdMinutes() { return extensionThresholdMinutes; }
+    public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
 }

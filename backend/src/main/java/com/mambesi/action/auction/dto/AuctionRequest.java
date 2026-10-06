@@ -21,6 +21,13 @@ public class AuctionRequest {
     private LocalDateTime endTime;
 
     private String imageUrl;
+    private int extensionThresholdMinutes = 3;
+    private int extensionDurationMinutes = 3;
+    private double bidIncrement = 5.0;
+
+    public int getExtensionThresholdMinutes() { return extensionThresholdMinutes; }
+    public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
+    public double getBidIncrement() { return bidIncrement; }
 
     public String getTitle() { return title; }
     public String getDescription() { return description; }

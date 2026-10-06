@@ -52,6 +52,15 @@ public class AuctionItem {
     @Column
     private String imageUrl;
 
+    @Column(nullable = false)
+    private int extensionThresholdMinutes = 3;
+
+    @Column(nullable = false)
+    private int extensionDurationMinutes = 3;
+
+    @Column(nullable = false)
+    private double bidIncrement = 5.0;
+
     @PrePersist
     protected void onCreate() {
         this.currentPrice = this.startingPrice;
@@ -159,4 +168,10 @@ public class AuctionItem {
 
     public String getImageUrl() { return imageUrl; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public int getExtensionThresholdMinutes() { return extensionThresholdMinutes; }
+    public void setExtensionThresholdMinutes(int m) { this.extensionThresholdMinutes = m; }
+    public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
+    public void setExtensionDurationMinutes(int m) { this.extensionDurationMinutes = m; }
+    public double getBidIncrement() { return bidIncrement; }
+    public void setBidIncrement(double bidIncrement) { this.bidIncrement = bidIncrement; }
 }

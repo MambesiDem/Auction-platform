@@ -6,35 +6,21 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleBid = async () => {
+    const minBid = (auction.currentPrice + Math.max(5, auction.bidIncrement || 5)).toFixed(2);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         setError('');
 
-        //block bids if auction is not live
-        const now = new Date();
-        const start = new Date(auction.startTime);
-        const end = new Date(auction.endTime);
-
-        if (now < start) {
-            setError('This auction has not started yet.');
-            return;
-        }
-
-        if (now > end) {
-            setError('This auction has already ended.');
-            return;
-        }
-
-        //existing validation
-        const parsed = parseFloat(amount);
-
-        if (!parsed || parsed <= auction.currentPrice) {
-            setError(`Bid must be higher than current price of R${auction.currentPrice.toLocaleString()}.`);
+        const value = parseFloat(amount);
+        if (!value || value < parseFloat(minBid)) {
+            setError(`Minimum bid is R${minBid}`);
             return;
         }
 
         try {
             setLoading(true);
-            await axiosInstance.post(`/api/bids/${auction.id}`, { amount: parsed });
+            await axiosInstance.post(`/api/bids/${auction.id}`, { amount: value });
             onBidPlaced();
             onClose();
         } catch (err) {
@@ -47,80 +33,105 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
     return (
         <div style={{
             position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.4)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 200,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 300, padding: '16px'
         }}>
             <div style={{
-                background: '#fff',
-                borderRadius: '12px',
-                padding: '28px',
-                width: '100%',
-                maxWidth: '400px',
-                border: '0.5px solid #e5e7eb',
+                background: '#fff', borderRadius: '16px',
+                padding: '28px', width: '100%', maxWidth: '380px',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.15)'
             }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '500', marginBottom: '4px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '4px', color: '#1A2B4A' }}>
                     Place a bid
-                </h2>
-                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px' }}>
+                </h3>
+                <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '20px' }}>
                     {auction.title}
                 </p>
 
-                <div style={{ marginBottom: '8px', fontSize: '13px', color: '#6b7280' }}>
-                    Current price: <strong style={{ color: '#1a1a1a' }}>
-                        R{auction.currentPrice.toLocaleString()}
-                    </strong>
+                <div style={{
+                    background: '#F0F4F8', borderRadius: '10px',
+                    padding: '14px 16px', marginBottom: '16px'
+                }}>
+                    <p style={{ fontSize: '11px', color: '#6B7280', marginBottom: '2px' }}>Current price</p>
+                    <p style={{ fontSize: '22px', fontWeight: '800', color: '#00A846' }}>
+                        R{auction.currentPrice?.toLocaleString()}
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#6B7280', marginTop: '6px' }}>
+                        Minimum bid: <strong>R{minBid}</strong>
+                        {' '}(R{Math.max(5, auction.bidIncrement || 5).toFixed(2)} increment)
+                    </p>
+                </div>
+
+                {/* Extension notice */}
+                <div style={{
+                    background: '#FFFBEB', border: '0.5px solid #FDE68A',
+                    borderRadius: '8px', padding: '10px 12px', marginBottom: '16px',
+                    fontSize: '11px', color: '#92400E'
+                }}>
+                    ⏱ A bid placed in the last {auction.extensionThresholdMinutes || 3} minutes
+                    resets the timer to {auction.extensionDurationMinutes || 3} minutes.
                 </div>
 
                 {error && (
                     <div style={{
-                        background: '#fef2f2', border: '0.5px solid #fca5a5',
-                        borderRadius: '8px', padding: '10px 14px',
-                        fontSize: '13px', color: '#b91c1c', marginBottom: '14px',
+                        background: '#FEF2F2', border: '0.5px solid #FECACA',
+                        borderRadius: '8px', padding: '10px 12px',
+                        fontSize: '13px', color: '#EF4444', marginBottom: '14px'
                     }}>
                         {error}
                     </div>
                 )}
 
-                <input
-                    type="number"
-                    placeholder={`Enter amount above R${auction.currentPrice.toLocaleString()}`}
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    style={{
-                        width: '100%', height: '38px',
-                        border: '0.5px solid #d1d5db', borderRadius: '8px',
-                        padding: '0 12px', fontSize: '14px',
-                        marginBottom: '16px', boxSizing: 'border-box',
-                    }}
-                />
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={onClose}
+                <form onSubmit={handleSubmit}>
+                    <label style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', display: 'block', marginBottom: '5px' }}>
+                        Your bid (R)
+                    </label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        min={minBid}
+                        value={amount}
+                        onChange={e => setAmount(e.target.value)}
+                        placeholder={`e.g. ${minBid}`}
                         style={{
-                            flex: 1, height: '38px',
-                            border: '0.5px solid #d1d5db', borderRadius: '8px',
-                            background: 'transparent', fontSize: '13px',
-                            color: '#6b7280', cursor: 'pointer',
+                            width: '100%', height: '44px',
+                            border: '0.5px solid #E5E7EB', borderRadius: '10px',
+                            padding: '0 14px', fontSize: '15px',
+                            fontWeight: '600', outline: 'none',
+                            marginBottom: '16px', fontFamily: 'inherit'
                         }}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleBid}
-                        disabled={loading}
-                        style={{
-                            flex: 1, height: '38px',
-                            background: loading ? '#93c5fd' : '#185FA5',
-                            border: 'none', borderRadius: '8px',
-                            color: '#fff', fontSize: '13px',
-                            fontWeight: '500', cursor: loading ? 'not-allowed' : 'pointer',
-                        }}
-                    >
-                        {loading ? 'Placing bid...' : 'Confirm bid'}
-                    </button>
-                </div>
+                        autoFocus
+                    />
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            style={{
+                                flex: 1, height: '42px',
+                                border: '0.5px solid #E5E7EB',
+                                borderRadius: '20px', background: 'transparent',
+                                fontSize: '14px', cursor: 'pointer', color: '#6B7280'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                flex: 2, height: '42px',
+                                background: '#1A2B4A', color: 'white',
+                                border: 'none', borderRadius: '20px',
+                                fontSize: '14px', fontWeight: '700',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.7 : 1
+                            }}
+                        >
+                            {loading ? 'Placing bid...' : `Bid R${amount || minBid}`}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

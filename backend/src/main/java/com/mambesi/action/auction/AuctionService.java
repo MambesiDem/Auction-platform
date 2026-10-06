@@ -4,6 +4,7 @@ import com.mambesi.action.bid.Bid;
 import com.mambesi.action.bid.BidMessage;
 import com.mambesi.action.bid.BidRepository;
 import com.mambesi.action.notification.EmailService;
+import com.mambesi.action.order.Order;
 import com.mambesi.action.order.OrderService;
 import com.mambesi.action.user.User;
 import com.mambesi.action.user.UserRepository;
@@ -140,26 +141,24 @@ public class AuctionService {
                 .max(Comparator.comparingDouble(Bid::getAmount))
                 .orElse(null);
 
-        if (highestBid != null) {
-            // Check reserve price
-            if (auction.getReservePrice() > 0 &&
-                    highestBid.getAmount() < auction.getReservePrice()) {
-                // Reserve not met — no winner
-                auction.setWinner(null);
-            } else {
-                auction.setWinner(highestBid.getBidder());
-                // Create the Order — locks commission rate and payment deadline
-                orderService.createOrderForAuctionWin(
-                        auction, highestBid.getBidder(), 15
-                );
-                // Send winner email
-                emailService.sendAuctionWonEmail(
-                        highestBid.getBidder().getEmail(),
-                        auction.getTitle(),
-                        highestBid.getAmount(),
-                        15
-                );
-            }
+        if (highestBid != null && (auction.getReservePrice() <= 0 ||
+                highestBid.getAmount() >= auction.getReservePrice())) {
+
+            auction.setWinner(highestBid.getBidder());
+
+            Order order = orderService.createOrderForAuctionWin(
+                    auction, highestBid.getBidder(), 15
+            );
+
+            // Keep paymentDeadline on AuctionItem so the existing frontend reads it correctly
+            auction.setPaymentDeadline(order.getPaymentDeadline());
+
+            emailService.sendAuctionWonEmail(
+                    highestBid.getBidder().getEmail(),
+                    auction.getTitle(),
+                    highestBid.getAmount(),
+                    15
+            );
         }
 
         return auctionRepository.save(auction);

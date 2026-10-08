@@ -53,7 +53,7 @@ public class EmailService {
                 "You won the auction for \"" + itemTitle + "\" " +
                 "with a bid of R" + String.format("%.2f", amount) + ".\n\n" +
                 "You have " + minutesToPay + " minutes to complete your payment. " +
-                "If payment is not received in time, the item will be offered to the next bidder.\n\n" +
+                "If payment is not received in time, an optional offer may be sent to another bidder after unresolved payments are checked.\n\n" +
                 "Please log in to complete your payment:\n" +
                 frontendUrl + "/buyer/dashboard\n\n" +
                 "Thank you for using " + appName + ".";
@@ -66,9 +66,9 @@ public class EmailService {
         String body = "Your payment has been received.\n\n" +
                 "Item: " + itemTitle + "\n" +
                 "Amount: R" + String.format("%.2f", amount) + "\n" +
-                "Status: Held in escrow\n\n" +
-                "Your funds are held securely and will be released to the seller " +
-                "once your item has been delivered.\n\n" +
+                "Status: Buyer payment confirmed\n\n" +
+                "Your payment has been verified. Seller settlement follows the approved payment arrangement " +
+                "after delivery and any required review.\n\n" +
                 "Track your delivery at:\n" +
                 frontendUrl + "/buyer/dashboard\n\n" +
                 "Thank you for using " + appName + ".";
@@ -79,11 +79,11 @@ public class EmailService {
                                                double sellerAmount) {
         String subject = "Payment received for: " + itemTitle;
         String body = "Good news!\n\n" +
-                "Payment for \"" + itemTitle + "\" has been received and is held in escrow.\n\n" +
+                "Payment for \"" + itemTitle + "\" has been verified.\n\n" +
                 "Your earnings: R" + String.format("%.2f", sellerAmount) + " " +
-                "(after 5% platform commission)\n\n" +
-                "Funds will be released to you automatically once the buyer " +
-                "confirms delivery of the item.\n\n" +
+                "(after the commission saved with this order)\n\n" +
+                "Settlement eligibility follows documented handover and review. The buyer " +
+                "confirms handover with a delivery code; this is not itself confirmation of a bank payout.\n\n" +
                 "Please create a delivery request if you haven't already:\n" +
                 frontendUrl + "/seller/dashboard\n\n" +
                 "Thank you for using " + appName + ".";

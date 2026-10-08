@@ -1,156 +1,41 @@
 package com.mambesi.action.auction;
-
-import com.mambesi.action.auction.dto.AuctionRequest;
-import com.mambesi.action.auction.dto.AuctionResponse;
-import com.mambesi.action.security.JwtService;
+import com.mambesi.action.auction.dto.*;
 import com.mambesi.action.user.User;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
-@RestController
-@RequestMapping("/api/auctions")
+import jakarta.validation.Valid;
+import java.util.*;
+@RestController @RequestMapping("/api/auctions")
 public class AuctionController {
-
-    private final AuctionService auctionService;
-    private final JwtService jwtService;
-
-    public AuctionController(AuctionService auctionService, JwtService jwtService) {
-        this.auctionService = auctionService;
-        this.jwtService = jwtService;
+    private final AuctionService service;private final AuctionResponseMapper mapper;
+    public AuctionController(AuctionService s,AuctionResponseMapper m){service=s;mapper=m;}
+    @PostMapping public AuctionResponse create(@Valid @RequestBody AuctionRequest r,Authentication auth){
+        AuctionItem a=new AuctionItem();a.setTitle(r.getTitle());a.setDescription(r.getDescription());a.setStartingPrice(r.getStartingPrice());a.setReservePrice(r.getReservePrice());a.setStartTime(r.getStartTime());a.setEndTime(r.getEndTime());a.setImageUrl(r.getImageUrl());return one(service.createAuction(a,user(auth).getEmail()),auth);
     }
-
-    @PostMapping
-    public AuctionResponse createAuction(@Valid @RequestBody AuctionRequest request,
-                                         HttpServletRequest httpRequest) {
-        String email = jwtService.extractEmail(
-                httpRequest.getHeader("Authorization").substring(7)
-        );
-
-        AuctionItem item = new AuctionItem();
-        item.setTitle(request.getTitle());
-        item.setDescription(request.getDescription());
-        item.setStartingPrice(request.getStartingPrice());
-        item.setStartTime(request.getStartTime());
-        item.setEndTime(request.getEndTime());
-        item.setImageUrl(request.getImageUrl());
-        item.setReservePrice(request.getReservePrice());
-
-        // Save policy at creation — these never change for this auction
-        item.setBidIncrement(request.getBidIncrement());
-        item.setExtensionThresholdMinutes(request.getExtensionThresholdMinutes());
-        item.setExtensionDurationMinutes(request.getExtensionDurationMinutes());
-
-        AuctionItem saved = auctionService.createAuction(item, email);
-        return mapToResponse(saved);
-    }
-
-    @GetMapping
-    public List<AuctionResponse> getAllAuctions() {
-        return auctionService.getAllAuctions()
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @GetMapping("/{id}")
-    public AuctionResponse getAuctionById(@PathVariable UUID id) {
-        return mapToResponse(auctionService.getAuctionById(id));
-    }
-
-    @DeleteMapping("/{id}")
-    public void deleteAuction(@PathVariable UUID id, HttpServletRequest httpRequest) {
-        String email = jwtService.extractEmail(
-                httpRequest.getHeader("Authorization").substring(7)
-        );
-        auctionService.deleteAuction(id, email);
-    }
-
-    @GetMapping("/won/{userId}")
-    public List<AuctionResponse> getAuctionsWonByUser(@PathVariable UUID userId) {
-        return auctionService.getAuctionsWonByUser(userId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @GetMapping("/my-wins")
-    public List<AuctionResponse> getMyWins() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) auth.getPrincipal();
-        return auctionService.getMyWins(user.getEmail())
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    private AuctionResponse mapToResponse(AuctionItem item) {
-        return new AuctionResponse(
-                item.getId(),
-                item.getTitle(),
-                item.getDescription(),
-                item.getStartingPrice(),
-                item.getCurrentPrice(),
-                item.isActive(),
-                item.getStartTime(),
-                item.getEndTime(),
-                item.getOwner() != null ? item.getOwner().getEmail() : null,
-                item.getWinner() != null ? item.getWinner().getEmail() : null,
-                item.getPaymentDeadline(),
-                item.getImageUrl(),
-                item.getBidIncrement(),
-                item.getExtensionThresholdMinutes(),
-                item.getExtensionDurationMinutes(),
-        item.getReservePrice() <= 0 ||
-                item.getCurrentPrice() >= item.getReservePrice()
-        );
-    }
-    @PutMapping("/{id}/close")
-    public AuctionResponse forceClose(@PathVariable UUID id) {
-        AuctionItem auction = auctionService.getAuctionById(id);
-        AuctionItem closed = auctionService.closeAuction(auction);
-        return mapToResponse(closed);
-    }
-    @PutMapping("/{id}/reopen")
-    public AuctionResponse reopenAuction(@PathVariable UUID id,
-                                         HttpServletRequest httpRequest) {
-        String email = jwtService.extractEmail(
-                httpRequest.getHeader("Authorization").substring(7)
-        );
-        return mapToResponse(auctionService.reopenAuction(id, email));
-    }
-    @GetMapping("/my-losses")
-    public List<AuctionResponse> getMyLosses() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) auth.getPrincipal();
-        return auctionService.getMyLosses(user.getEmail())
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @GetMapping("/my-active-bids")
-    public List<AuctionResponse> getMyActiveBids() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) auth.getPrincipal();
-        return auctionService.getMyActiveBids(user.getEmail())
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    @GetMapping("/{id}/my-bid")
-    public ResponseEntity<Double> getMyHighestBid(@PathVariable UUID id) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = (User) auth.getPrincipal();
-        Double amount = auctionService.getMyHighestBid(id, user.getEmail());
-        return ResponseEntity.ok(amount != null ? amount : 0.0);
-    }
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping public List<AuctionResponse> all(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="100")int size,@RequestParam(defaultValue="false")boolean activeOnly,Authentication auth){return mapper.map(activeOnly?service.getOpenAuctions(page,size):service.getAllAuctions(page,size),user(auth));}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/my-listings") public List<AuctionResponse> listings(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="100")int size,Authentication a){return mapper.map(service.getMyListings(user(a).getEmail(),page,size),user(a));}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/my-wins") public List<AuctionResponse> wins(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="100")int size,Authentication a){return mapper.map(service.getMyWins(user(a).getEmail(),page,size),user(a));}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/won/{id}") public List<AuctionResponse> won(@PathVariable UUID id,@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="100")int size,Authentication a){return mapper.map(service.getAuctionsWonByUser(id,page,size),user(a));}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/my-losses") public List<AuctionResponse> losses(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="100")int size,Authentication a){return mapper.map(service.getMyLosses(user(a).getEmail(),page,size),user(a));}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/my-active-bids") public List<AuctionResponse> active(@RequestParam(defaultValue="0")int page,@RequestParam(defaultValue="100")int size,Authentication a){return mapper.map(service.getMyActiveBids(user(a).getEmail(),page,size),user(a));}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/{id}") public AuctionResponse detail(@PathVariable UUID id,Authentication a){return one(service.getAuctionById(id),a);}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/{id}/my-bid") public Double bid(@PathVariable UUID id,Authentication a){Double v=service.getMyHighestBid(id,user(a).getEmail());return v==null?0:v;}
+    @DeleteMapping("/{id}") public void delete(@PathVariable UUID id,Authentication a){service.deleteAuction(id,user(a).getEmail());}
+    @PutMapping("/{id}/close") public AuctionResponse close(@PathVariable UUID id,Authentication a){return one(service.closeAuction(id),a);}
+    @PutMapping("/{id}/reopen") public AuctionResponse relist(@PathVariable UUID id,Authentication a){return one(service.reopenAuction(id,user(a).getEmail()),a);}
+    public record OfferView(UUID id,UUID auctionId,String title,double amount,java.time.LocalDateTime expiresAt){}
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @GetMapping("/offers") public List<OfferView> offers(Authentication a){return service.getOffers(user(a).getEmail()).stream().map(o->new OfferView(o.getId(),o.getAuction().getId(),o.getAuction().getTitle(),o.getAmount(),o.getExpiresAt())).toList();}
+    public record Response(boolean accept){}
+    @PutMapping("/offers/{id}") public void respond(@PathVariable UUID id,@RequestBody Response r,Authentication a){service.respondToOffer(id,user(a).getEmail(),r.accept());}
+    private AuctionResponse one(AuctionItem item,Authentication a){return mapper.map(List.of(item),user(a)).get(0);}
+    private User user(Authentication a){return a!=null && a.getPrincipal() instanceof User u?u:null;}
 }

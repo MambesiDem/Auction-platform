@@ -27,15 +27,23 @@ public class DeliveryController {
     }
 
     // Seller creates a delivery request
+    @org.springframework.transaction.annotation.Transactional(noRollbackFor=com.mambesi.action.delivery.DeliveryService.InvalidCodeException.class)
     @PostMapping
     public DeliveryResponse createDelivery(@Valid @RequestBody DeliveryRequest request,
                                            HttpServletRequest httpRequest) {
         String email = extractEmail(httpRequest);
-        Delivery delivery = deliveryService.createDelivery(request.getAuctionId(), email);
+        Delivery delivery = deliveryService.createDelivery(request.getAuctionId(), email, request.preparationEvidence());
         return mapToResponse(delivery);
     }
 
+    public record Reset(boolean pickup, @jakarta.validation.constraints.NotBlank String reason) {}
+    @org.springframework.transaction.annotation.Transactional(noRollbackFor=com.mambesi.action.delivery.DeliveryService.InvalidCodeException.class)
+    @PutMapping("/{deliveryId}/reset-code")
+    public DeliveryResponse reset(@PathVariable UUID deliveryId,@Valid @RequestBody Reset request) {
+        return mapToResponse(deliveryService.resetCode(deliveryId,request.pickup(),getAuthenticatedEmail(),request.reason()));
+    }
     // Driver views all pending deliveries
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping("/pending")
     public List<DeliveryResponse> getPendingDeliveries() {
         return deliveryService.getPendingDeliveries()
@@ -45,6 +53,7 @@ public class DeliveryController {
     }
 
     // Driver accepts a delivery
+    @org.springframework.transaction.annotation.Transactional(noRollbackFor=com.mambesi.action.delivery.DeliveryService.InvalidCodeException.class)
     @PutMapping("/{deliveryId}/accept")
     public DeliveryResponse acceptDelivery(@PathVariable UUID deliveryId,
                                            HttpServletRequest httpRequest) {
@@ -54,16 +63,20 @@ public class DeliveryController {
     }
 
     // Driver updates delivery status
+    @org.springframework.transaction.annotation.Transactional(noRollbackFor=com.mambesi.action.delivery.DeliveryService.InvalidCodeException.class)
     @PutMapping("/{deliveryId}/status")
     public DeliveryResponse updateStatus(@PathVariable UUID deliveryId,
                                          @RequestParam DeliveryStatus status,
+                                         @RequestParam(required=false) String code,
+                                         @RequestParam String evidence,
                                          HttpServletRequest httpRequest) {
         String email = extractEmail(httpRequest);
-        Delivery delivery = deliveryService.updateStatus(deliveryId, email, status);
+        Delivery delivery = deliveryService.updateStatus(deliveryId, email, status, code, evidence);
         return mapToResponse(delivery);
     }
 
     // Driver views their deliveries
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping("/my-deliveries")
     public List<DeliveryResponse> getMyDeliveries() {
         String email = getAuthenticatedEmail();
@@ -74,6 +87,7 @@ public class DeliveryController {
     }
 
     // Buyer tracks their purchases
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping("/my-purchases")
     public List<DeliveryResponse> getMyPurchases() {
         String email = getAuthenticatedEmail();
@@ -84,6 +98,7 @@ public class DeliveryController {
     }
 
     // Seller views their sales deliveries
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping("/my-sales")
     public List<DeliveryResponse> getMySales() {
         String email = getAuthenticatedEmail();
@@ -92,6 +107,7 @@ public class DeliveryController {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping
     public List<DeliveryResponse> getAllDeliveries() {
         return deliveryService.getAllDeliveries()
@@ -114,16 +130,20 @@ public class DeliveryController {
     }
 
     private DeliveryResponse mapToResponse(Delivery delivery) {
-        return new DeliveryResponse(
+        DeliveryResponse response = new DeliveryResponse(
                 delivery.getId(),
                 delivery.getAuctionItem().getId(),
                 delivery.getAuctionItem().getTitle(),
-                delivery.getSeller().getEmail(),
-                delivery.getBuyer().getEmail(),
+                delivery.getStatus() == DeliveryStatus.PENDING ? null : delivery.getSeller().getEmail(),
+                delivery.getStatus() == DeliveryStatus.PENDING ? null : delivery.getBuyer().getEmail(),
                 delivery.getDriver() != null ? delivery.getDriver().getEmail() : null,
                 delivery.getStatus(),
                 delivery.getCreatedAt(),
                 delivery.getUpdatedAt()
         );
+        String viewer = getAuthenticatedEmail();
+        if (viewer.equals(delivery.getSeller().getEmail()) && delivery.getStatus()==DeliveryStatus.ACCEPTED) response.setPickupCode(delivery.getPickupCode());
+        if (viewer.equals(delivery.getBuyer().getEmail()) && delivery.getStatus()==DeliveryStatus.IN_TRANSIT) response.setDeliveryCode(delivery.getDeliveryCode());
+        return response;
     }
 }

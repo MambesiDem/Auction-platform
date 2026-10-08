@@ -37,7 +37,7 @@ public class Message {
     private LocalDateTime sentAt;
 
     @PrePersist
-    protected void onCreate() { this.sentAt = LocalDateTime.now(); }
+    protected void onCreate() { this.sentAt = com.mambesi.action.common.AppTime.now(); }
 
     public Message() {}
 

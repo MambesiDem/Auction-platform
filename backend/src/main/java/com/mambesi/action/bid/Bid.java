@@ -24,8 +24,8 @@ public class Bid {
     @JoinColumn(name = "user_id", nullable = false)
     private User bidder;
 
-    @Column(nullable = false)
-    private double amount;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal amount;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime timestamp;
@@ -34,7 +34,7 @@ public class Bid {
         this.id = id;
         this.auctionItem = auctionItem;
         this.bidder = bidder;
-        this.amount = amount;
+        this.amount = com.mambesi.action.common.Money.value(amount);
         this.timestamp = timestamp;
     }
 
@@ -66,11 +66,11 @@ public class Bid {
     }
 
     public double getAmount() {
-        return amount;
+        return amount == null ? 0.0 : amount.doubleValue();
     }
 
     public void setAmount(double amount) {
-        this.amount = amount;
+        this.amount = com.mambesi.action.common.Money.value(amount);
     }
 
     public LocalDateTime getTimestamp() {
@@ -83,6 +83,6 @@ public class Bid {
 
     @PrePersist
     protected void onCreate() {
-        this.timestamp = LocalDateTime.now();
+        if (this.timestamp == null) this.timestamp = com.mambesi.action.common.AppTime.now();
     }
 }

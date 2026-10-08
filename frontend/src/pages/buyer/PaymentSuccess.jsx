@@ -10,40 +10,26 @@ export default function PaymentSuccess() {
     const auctionId = searchParams.get('auction_id');
 
     useEffect(() => {
-        if (!auctionId) {
-            // No auction ID — just show success and redirect
-            setTimeout(() => navigate('/buyer/dashboard'), 3000);
-            return;
-        }
-
-        // Poll every 3 seconds for up to 30 seconds
-        let attempts = 0;
-        const maxAttempts = 10;
-
-        const poll = setInterval(async () => {
+        let stopped=false, timer, redirect, attempts=0;
+        if (!auctionId) { setStatus('pending'); return; }
+        const check=async()=>{
             attempts++;
             try {
-                const res = await axiosInstance.get(
-                    `/api/payments/status/${auctionId}`
-                );
-                if (res.data.status === 'HELD') {
-                    clearInterval(poll);
-                    setStatus('confirmed');
-                    setTimeout(() => navigate('/buyer/dashboard'), 2500);
+                const { data }=await axiosInstance.get(`/api/payments/status/${auctionId}`);
+                if(stopped)return;
+                if(['HELD','RELEASE_REQUESTED','RELEASED'].includes(data.status)){
+                    setStatus('confirmed'); redirect=setTimeout(()=>navigate('/buyer/dashboard'),2500);return;
                 }
-            } catch (err) {
-                // Payment record may not exist yet — keep polling
-            }
-
-            if (attempts >= maxAttempts) {
-                clearInterval(poll);
-                setStatus('pending');
-                setTimeout(() => navigate('/buyer/dashboard'), 3000);
-            }
-        }, 3000);
-
-        return () => clearInterval(poll);
-    }, [auctionId, navigate]);
+                if(['FAILED','REVIEW_REQUIRED','REFUND_REQUESTED','REFUNDED'].includes(data.status)){
+                    setStatus('pending');return;
+                }
+            } catch(error) { if(stopped)return; }
+            if(attempts>=10){setStatus('pending');return;}
+            timer=setTimeout(check,3000);
+        };
+        check();
+        return ()=>{stopped=true;clearTimeout(timer);clearTimeout(redirect);};
+    },[auctionId,navigate]);
 
     return (
         <div style={{ minHeight: '100vh', background: '#f4f5f7' }}>
@@ -87,8 +73,7 @@ export default function PaymentSuccess() {
                                 Payment confirmed
                             </p>
                             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '24px' }}>
-                                Your funds are held securely in escrow and will be
-                                released to the seller once your item is delivered.
+                                Your payment has been verified. Delivery and seller settlement are tracked separately.
                                 Redirecting you to your dashboard...
                             </p>
                         </>
@@ -103,11 +88,10 @@ export default function PaymentSuccess() {
                                 margin: '0 auto 16px', fontSize: '22px'
                             }}>⏱</div>
                             <p style={{ fontSize: '20px', fontWeight: '500', marginBottom: '8px' }}>
-                                Payment received
+                                Confirmation pending
                             </p>
                             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '24px' }}>
-                                Your payment was received by PayFast. Your dashboard
-                                will update shortly once confirmation arrives.
+                                We have not yet verified your payment. Check your dashboard before paying again. Contact support if you were charged but confirmation is missing.
                                 Redirecting you now...
                             </p>
                         </>

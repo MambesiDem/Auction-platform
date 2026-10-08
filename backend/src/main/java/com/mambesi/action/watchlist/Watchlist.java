@@ -26,7 +26,7 @@ public class Watchlist {
     private LocalDateTime addedAt;
 
     @PrePersist
-    protected void onCreate() { this.addedAt = LocalDateTime.now(); }
+    protected void onCreate() { this.addedAt = com.mambesi.action.common.AppTime.now(); }
 
     public Watchlist() {}
 

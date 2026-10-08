@@ -1,8 +1,9 @@
+import RunnerUpOffers from '../../components/RunnerUpOffers';
+import { applyBid, latestPayment, auctionDate, useAuctionSync, auctionState, canPayForAuction } from '../../utils/auctionLifecycle';
 import { useEffect, useState, useCallback } from 'react';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
+import { getAllPages } from '../../api/transactions';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
@@ -13,60 +14,50 @@ import styles from './BuyerBids.module.css';
 export default function BuyerBids() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [activeTab, setActiveTab] = useState('Active');
+    const [payments, setPayments] = useState([]);
     const [bids, setBids] = useState([]);
     const [myBidAmounts, setMyBidAmounts] = useState({});
     const [loading, setLoading] = useState(true);
+    const [offers, setOffers] = useState([]);
     const [timers, setTimers] = useState({});
     const [selectedAuction, setSelectedAuction] = useState(null);
 
     const fetchData = useCallback(async () => {
+        const offerRequest = axiosInstance.get('/api/auctions/offers').then(r => setOffers(r.data)).catch(e => console.error('Offers unavailable', e));
         try {
-            const res = await axiosInstance.get('/api/auctions/my-active-bids');
+            const [activeRes, winsRes, lossesRes, paymentsRes] = await Promise.all([
+                getAllPages('/api/auctions/my-active-bids'),
+                getAllPages('/api/auctions/my-wins'),
+                getAllPages('/api/auctions/my-losses'),
+                axiosInstance.get('/api/payments/my-payments'),
+            ]);
+            const res = { data: [...new Map([...activeRes.data, ...winsRes.data, ...lossesRes.data]
+                .map(auction => [auction.id, auction])).values()] };
             setBids(res.data);
+            setPayments(paymentsRes.data);
 
-            // Fetch my highest bid for each auction
-            const bidAmounts = {};
-            await Promise.all(res.data.map(async (auction) => {
-                const bidRes = await axiosInstance.get(`/api/auctions/${auction.id}/my-bid`);
-                bidAmounts[auction.id] = bidRes.data;
-            }));
-            setMyBidAmounts(bidAmounts);
+            setMyBidAmounts(Object.fromEntries(res.data.map(auction =>
+                [auction.id, auction.myHighestBid || 0])));
         } catch (err) {
             console.error('Failed to fetch bids', err);
         } finally {
+            await offerRequest;
             setLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchData();
-        const client = new Client({
-            webSocketFactory: () => new SockJS(`${process.env.REACT_APP_API_URL}/ws-auction`),
-            onConnect: () => {
-                client.subscribe('/topic/bids', (message) => {
-                    const bid = JSON.parse(message.body);
-                    setBids(prev => prev.map(a =>
-                        a.id === bid.auctionId
-                            ? { ...a, currentPrice: bid.amount, endTime: bid.newEndTime || a.endTime }
-                            : a
-                    ));
-                });
-                client.subscribe('/topic/auction-closed', () => fetchData());
-            },
-        });
-        client.activate();
-        return () => client.deactivate();
-    }, [fetchData]);
+    const clock = useAuctionSync(fetchData, true, bid => { setBids(prev => applyBid(prev, bid)); });
+
 
     // Countdown timers
     useEffect(() => {
-        const interval = setInterval(() => {
             const updated = {};
             bids.forEach(a => {
                 const now = new Date();
-                const end = new Date(a.endTime);
+                const end = auctionDate(a.endTime);
                 const diff = end - now;
-                if (diff <= 0) {
+                if (!a.active || diff <= 0) {
                     updated[a.id] = { label: 'Ended', state: 'ended' };
                 } else {
                     const h = Math.floor(diff / 3600000);
@@ -81,15 +72,15 @@ export default function BuyerBids() {
                 }
             });
             setTimers(updated);
-        }, 1000);
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [bids]);
+    }, [bids, clock]);
 
     const isWinning = (auction) => {
         const myBid = myBidAmounts[auction.id] || 0;
         return myBid >= auction.currentPrice;
     };
+
+    const visibleBids = bids.filter(a => activeTab === 'Active'
+        ? auctionState(a, clock) !== 'Closed' : auctionState(a, clock) === 'Closed');
 
     if (loading) return (
         <div className={styles.layout}>
@@ -110,11 +101,12 @@ export default function BuyerBids() {
                 <TopBar />
 
                 <div className={styles.content}>
+                    <RunnerUpOffers offers={offers} refresh={fetchData} />
                     <div className={styles.pageHeader}>
                         <div>
                             <h1 className={styles.pageTitle}>My Bids</h1>
                             <p className={styles.pageSubtitle}>
-                                {bids.length} active bid{bids.length !== 1 ? 's' : ''}
+                                {visibleBids.length} {activeTab.toLowerCase()} auction{visibleBids.length !== 1 ? 's' : ''}
                             </p>
                         </div>
                         <button
@@ -125,12 +117,18 @@ export default function BuyerBids() {
                         </button>
                     </div>
 
-                    {bids.length === 0 ? (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                        {['Active', 'History'].map(tab => (
+                            <button key={tab} className={styles.browseBtn} onClick={() => setActiveTab(tab)}
+                                aria-pressed={activeTab === tab}>{tab === 'Active' ? 'Active auctions' : 'Closed auctions'}</button>
+                        ))}
+                    </div>
+                    {visibleBids.length === 0 ? (
                         <div className={styles.emptyState}>
                             <div className={styles.emptyIcon}>⚡</div>
-                            <h3 className={styles.emptyTitle}>No active bids</h3>
+                            <h3 className={styles.emptyTitle}>No {activeTab.toLowerCase()} auctions</h3>
                             <p className={styles.emptySub}>
-                                You haven't placed any bids on live auctions yet.
+                                No auctions to display in this section.
                             </p>
                             <button
                                 className={styles.browseBtn}
@@ -141,10 +139,17 @@ export default function BuyerBids() {
                         </div>
                     ) : (
                         <div className={styles.bidsList}>
-                            {bids.map(auction => {
+                            {visibleBids.map(auction => {
                                 const timer = timers[auction.id];
                                 const myBid = myBidAmounts[auction.id] || 0;
-                                const winning = isWinning(auction);
+                                const state = auctionState(auction, clock);
+                                const closed = state === 'Closed';
+                                const won = closed && !auction.active && auction.winnerEmail === user?.email;
+                                const winning = !closed && isWinning(auction);
+                                const resultLabel = won ? '🏆 Won' : closed
+                                    ? auction.active ? 'Finalising result' : auction.hasWinner ? 'Lost' : 'No sale'
+                                    : winning ? 'Leading' : 'Outbid';
+                                const payment = latestPayment(payments, auction);
 
                                 return (
                                     <div key={auction.id} className={styles.bidCard}>
@@ -187,7 +192,7 @@ export default function BuyerBids() {
                                             <span className={`${styles.statusBadge} ${
                                                 winning ? styles.statusWinning : styles.statusLosing
                                             }`}>
-                                                {winning ? '🏆 Winning' : '❌ Outbid'}
+                                                {resultLabel}
                                             </span>
 
                                             {/* Timer */}
@@ -200,7 +205,7 @@ export default function BuyerBids() {
                                             )}
 
                                             {/* Bid button */}
-                                            {!winning && timer?.state !== 'ended' && (
+                                            {!winning && state === 'Live' && (
                                                 <button
                                                     className={styles.bidBtn}
                                                     onClick={() => setSelectedAuction(auction)}
@@ -209,13 +214,9 @@ export default function BuyerBids() {
                                                 </button>
                                             )}
 
-                                            {winning && timer?.state !== 'ended' && (
-                                                <button
-                                                    className={styles.watchBtn}
-                                                    onClick={() => setSelectedAuction(auction)}
-                                                >
-                                                    Bid again
-                                                </button>
+                                            {won && canPayForAuction(auction, payment) && (
+                                                <button className={styles.bidBtn}
+                                                    onClick={() => navigate(`/payment/${auction.id}`)}>Pay Now</button>
                                             )}
                                         </div>
                                     </div>

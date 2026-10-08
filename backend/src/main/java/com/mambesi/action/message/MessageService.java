@@ -26,9 +26,13 @@ public class MessageService {
         User receiver = userRepository.findByEmail(request.getReceiverEmail())
                 .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
-        String threadId = request.getThreadId() != null && !request.getThreadId().isBlank()
-                ? request.getThreadId()
-                : generateThreadId(sender.getId(), receiver.getId());
+        String threadId = generateThreadId(sender.getId(), receiver.getId());
+        if (request.getThreadId() != null && !request.getThreadId().isBlank() && !threadId.equals(request.getThreadId()))
+            throw new SecurityException("This thread does not belong to these participants.");
+        if (sender.getId().equals(receiver.getId())) throw new IllegalArgumentException("Choose another recipient.");
+        if (request.getContent() == null || request.getContent().isBlank() || request.getContent().length() > 5000)
+            throw new IllegalArgumentException("Message must contain 1 to 5000 characters.");
+        if (request.getSubject() != null && request.getSubject().length() > 200) throw new IllegalArgumentException("Subject is too long.");
 
         Message message = new Message();
         message.setSender(sender);
@@ -41,6 +45,7 @@ public class MessageService {
         return messageRepository.save(message);
     }
 
+    @Transactional(readOnly=true)
     public List<MessageResponse> getThreads(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -50,18 +55,24 @@ public class MessageService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public List<MessageResponse> getThread(String threadId, String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        List<Message> thread = messageRepository.findByThreadIdOrderBySentAtAsc(threadId);
+        if (thread.isEmpty()) return List.of();
+        for (Message m : thread) {
+            if (!m.getSender().getId().equals(user.getId()) && !m.getReceiver().getId().equals(user.getId()))
+                throw new SecurityException("You are not a participant in this conversation.");
+        }
         // Mark messages as read
         List<Message> unread = messageRepository
                 .findByThreadIdAndReceiverIdAndReadFalse(threadId, user.getId());
         unread.forEach(m -> m.setRead(true));
         messageRepository.saveAll(unread);
 
-        return messageRepository.findByThreadIdOrderBySentAtAsc(threadId)
-                .stream()
+        return thread.stream()
                 .map(m -> mapToResponse(m, email))
                 .collect(Collectors.toList());
     }

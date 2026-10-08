@@ -1,68 +1,22 @@
 package com.mambesi.action.auction;
-
-import com.mambesi.action.bid.BidRepository;
-import com.mambesi.action.bid.BidMessage;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.mambesi.action.order.*;
+import com.mambesi.action.common.AppTime;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
+import org.springframework.data.domain.PageRequest;
+import java.util.*;
 @Component
 public class AuctionScheduler {
-
-    private final AuctionRepository auctionRepository;
-    private final BidRepository bidRepository;
-    private final SimpMessagingTemplate messagingTemplate;
-
-    private final AuctionService auctionService;
-
-    public AuctionScheduler(AuctionRepository auctionRepository,
-                            BidRepository bidRepository,
-                            SimpMessagingTemplate messagingTemplate, AuctionService auctionService) {
-        this.auctionRepository = auctionRepository;
-        this.bidRepository = bidRepository;
-        this.messagingTemplate = messagingTemplate;
-        this.auctionService = auctionService;
+    private final AuctionRepository auctions;private final AuctionService service;private final OrderRepository orders;private final RunnerUpOfferRepository offers;
+    public AuctionScheduler(AuctionRepository a,AuctionService s,OrderRepository o,RunnerUpOfferRepository r){auctions=a;service=s;orders=o;offers=r;}
+    @Scheduled(fixedDelay=5000)
+    public void checkAuctions(){
+        for(UUID id:auctions.findDueToCloseIds(AppTime.now(),PageRequest.of(0,100))) attempt(id,()->service.closeExpiredAuction(id));
+        Set<UUID> expired=new LinkedHashSet<>(orders.findExpiredAuctionIds(OrderStatus.AWAITING_PAYMENT,AppTime.now()));
+        expired.addAll(offers.findExpiredAuctionIds(RunnerUpOffer.Status.OFFERED,AppTime.now()));
+        // Declined offers also need their next candidate; include auctions with cancelled latest commitments.
+        expired.addAll(auctions.findOffersToAdvance(AppTime.now(),PageRequest.of(0,100)));
+        for(UUID id:expired) attempt(id,()->service.expirePaymentAndReassign(id));
     }
-
-    // Runs every minute to check auctions
-    // Close an auction its time is over
-    @Scheduled(fixedRate = 60000)
-    public void checkAuctions() {
-
-        List<AuctionItem> auctions = auctionRepository.findAll();
-
-        for (AuctionItem auction : auctions) {
-
-            // Close expired active auctions
-            if (auction.isActive()
-                    && auction.getEndTime().isBefore(LocalDateTime.now())) {
-
-                AuctionItem closed = auctionService.closeAuction(auction);
-
-                BidMessage message = new BidMessage();
-                message.setAuctionId(closed.getId().toString());
-                message.setBidderEmail(
-                        closed.getWinner() != null ? closed.getWinner().getEmail() : "NO_WINNER"
-                );
-                message.setAmount(
-                        closed.getWinner() != null ? closed.getCurrentPrice() : 0
-                );
-                message.setTimestamp(LocalDateTime.now().toString());
-
-                messagingTemplate.convertAndSend("/topic/auction-closed", message);
-            }
-
-            // Check payment deadline on closed auctions with a winner
-            if (!auction.isActive()
-                    && auction.getWinner() != null
-                    && auction.getPaymentDeadline() != null
-                    && auction.getPaymentDeadline().isBefore(LocalDateTime.now())) {
-
-                auctionService.expirePaymentAndReassign(auction.getId());
-            }
-        }
-    }
+    private void attempt(UUID id,Runnable action){try{action.run();}catch(RuntimeException e){org.slf4j.LoggerFactory.getLogger(getClass()).error("Auction job failed for {}",id,e);}}
 }

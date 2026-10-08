@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useAuctionSync } from '../../utils/auctionLifecycle';
+import { getAllPages } from '../../api/transactions';
+import { useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
@@ -17,7 +19,7 @@ export default function SellerAnalytics() {
     const fetchData = useCallback(async () => {
         try {
             const [auctionsRes, paymentsRes, deliveriesRes] = await Promise.all([
-                axiosInstance.get('/api/auctions'),
+                getAllPages('/api/auctions/my-listings'),
                 axiosInstance.get('/api/payments/my-earnings'),
                 axiosInstance.get('/api/deliveries/my-sales'),
             ]);
@@ -32,9 +34,7 @@ export default function SellerAnalytics() {
         }
     }, [user]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useAuctionSync(fetchData);
 
     // Compute stats
     const released = payments.filter(p => p.status === 'RELEASED');
@@ -132,7 +132,7 @@ export default function SellerAnalytics() {
                             <p className={styles.kpiLabel}>Total earnings</p>
                             <p className={styles.kpiValue}>R{totalRevenue.toLocaleString()}</p>
                             <p className={styles.kpiSub}>
-                                +R{escrowTotal.toLocaleString()} in escrow
+                                +R{escrowTotal.toLocaleString()} confirmed by the payment provider
                             </p>
                         </div>
                         <div className={styles.kpiCard}>
@@ -145,7 +145,7 @@ export default function SellerAnalytics() {
                         <div className={styles.kpiCard}>
                             <p className={styles.kpiLabel}>Platform commission</p>
                             <p className={styles.kpiValueDark}>R{totalCommission.toLocaleString()}</p>
-                            <p className={styles.kpiSub}>5% per sale</p>
+                            <p className={styles.kpiSub}>Commission saved with each order</p>
                         </div>
                         <div className={styles.kpiCard}>
                             <p className={styles.kpiLabel}>Active listings</p>
@@ -271,7 +271,7 @@ export default function SellerAnalytics() {
                                 <div className={styles.breakdownList}>
                                     {[
                                         { label: 'Released to you', value: totalRevenue, color: '#00C853' },
-                                        { label: 'In escrow', value: escrowTotal, color: '#60A5FA' },
+                                        { label: 'Payment confirmed', value: escrowTotal, color: '#60A5FA' },
                                         { label: 'Platform commission', value: totalCommission, color: '#F59E0B' },
                                     ].map(item => (
                                         <div key={item.label} className={styles.breakdownItem}>

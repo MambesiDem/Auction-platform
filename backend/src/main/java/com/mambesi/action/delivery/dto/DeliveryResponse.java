@@ -8,6 +8,12 @@ import java.util.UUID;
 public class DeliveryResponse {
 
     private UUID id;
+    private String pickupCode;
+    private String deliveryCode;
+    public String getPickupCode(){return pickupCode;}
+    public void setPickupCode(String s){pickupCode=s;}
+    public String getDeliveryCode(){return deliveryCode;}
+    public void setDeliveryCode(String s){deliveryCode=s;}
     private UUID auctionId;
     private String auctionTitle;
     private String sellerEmail;

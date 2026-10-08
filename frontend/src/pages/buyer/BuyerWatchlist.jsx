@@ -1,3 +1,4 @@
+import { auctionDate, useAuctionSync } from '../../utils/auctionLifecycle';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
@@ -28,19 +29,16 @@ export default function BuyerWatchlist() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const clock = useAuctionSync(fetchData);
 
     // Countdown timers
     useEffect(() => {
-        const interval = setInterval(() => {
             const updated = {};
             items.forEach(a => {
                 const now = new Date();
-                const start = new Date(a.startTime);
-                const end = new Date(a.endTime);
-                if (now < start) {
+                const start = auctionDate(a.startTime);
+                const end = auctionDate(a.endTime);
+                if (!a.active) { updated[a.id] = { label: 'Closed', state: 'ended' }; } else if (now < start) {
                     const diff = start - now;
                     const h = Math.floor(diff / 3600000);
                     const m = Math.floor((diff % 3600000) / 60000);
@@ -62,10 +60,7 @@ export default function BuyerWatchlist() {
                 }
             });
             setTimers(updated);
-        }, 1000);
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [items]);
+    }, [items, clock]);
 
     const handleRemove = async (auctionId) => {
         setRemoving(auctionId);

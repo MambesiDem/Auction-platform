@@ -72,12 +72,15 @@ public class UserController {
     public List<UserResponse> getAllUsers() {
         return userService.getAllUsers();
     }
+    public record AdminRequest(@jakarta.validation.constraints.NotBlank String fullName,
+                               @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Email String email,
+                               @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min=8) String password) {}
     @PostMapping("/create-admin")
-    public UserResponse createAdmin(@Valid @RequestBody UserRequest request) {
+    public UserResponse createAdmin(@Valid @RequestBody AdminRequest request) {
         return userService.createAdmin(
-                request.getFullName(),
-                request.getEmail(),
-                request.getPassword()
+                request.fullName(),
+                request.email(),
+                request.password()
         );
     }
     @PutMapping("/me")

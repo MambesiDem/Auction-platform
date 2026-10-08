@@ -7,8 +7,8 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
     const [loading, setLoading] = useState(false);
 
     // Starting price if no bids yet, otherwise current + increment
-    const hasExistingBids = auction.currentPrice > auction.startingPrice;
-    const minBid = hasExistingBids
+    const hasExistingBids = auction.hasBids === true;
+    const minBid = auction.nextMinimumBid != null ? Number(auction.nextMinimumBid).toFixed(2) : hasExistingBids
         ? (auction.currentPrice + Math.max(5, auction.bidIncrement || 5)).toFixed(2)
         : parseFloat(auction.startingPrice || auction.currentPrice).toFixed(2);
 
@@ -16,8 +16,8 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
         e.preventDefault();
         setError('');
 
-        const value = parseFloat(amount);
-        if (!value || value < parseFloat(minBid)) {
+        const value = Number(amount);
+        if (!Number.isFinite(value) || !value || Math.abs(value * 100 - Math.round(value * 100)) > 0.000001 || value < parseFloat(minBid)) {
             setError(`Minimum bid is R${minBid}`);
             return;
         }
@@ -67,13 +67,14 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
                     </p>
                 </div>
 
+                <p style={{ fontSize: 12 }}>If your bid wins and the reserve is met, you must pay your bid amount within the displayed payment window. Delivery arrangements must be agreed before bidding; this testing version does not calculate a delivery charge.</p>
                 {/* Extension notice */}
                 <div style={{
                     background: '#FFFBEB', border: '0.5px solid #FDE68A',
                     borderRadius: '8px', padding: '10px 12px', marginBottom: '16px',
                     fontSize: '11px', color: '#92400E'
                 }}>
-                    ⏱ A bid placed in the last {auction.extensionThresholdMinutes || 3} minutes
+                    ⏱ An accepted bid placed in the last {auction.extensionThresholdMinutes || 3} minutes
                     resets the timer to {auction.extensionDurationMinutes || 3} minutes.
                 </div>
 
@@ -88,10 +89,11 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
                 )}
 
                 <form onSubmit={handleSubmit}>
-                    <label style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', display: 'block', marginBottom: '5px' }}>
+                    <label htmlFor="bid-amount" style={{ fontSize: '12px', fontWeight: '500', color: '#6B7280', display: 'block', marginBottom: '5px' }}>
                         Your bid (R)
                     </label>
                     <input
+                        id="bid-amount"
                         type="number"
                         step="0.01"
                         min={minBid}

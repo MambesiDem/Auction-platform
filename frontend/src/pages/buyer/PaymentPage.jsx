@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import Navbar from '../../components/Navbar';
@@ -8,6 +8,8 @@ export default function PaymentPage() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [order, setOrder] = useState(null);
+    useEffect(() => { axiosInstance.get(`/api/auctions/${auctionId}`).then(r=>setOrder(r.data)).catch(e=>setError(e.response?.data?.message || 'Cannot load this order.')); }, [auctionId]);
 
     const handlePay = async () => {
         try {
@@ -39,7 +41,7 @@ export default function PaymentPage() {
                     </p>
                     <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '24px' }}>
                         You will be redirected to PayFast to complete your payment securely.
-                        Funds will be held in escrow until your item is delivered.
+                        Payment confirmation, delivery and seller payout are separate events.
                     </p>
 
                     {error && (
@@ -57,17 +59,19 @@ export default function PaymentPage() {
                         padding: '14px 16px', marginBottom: '20px'
                     }}>
                         <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>
-                            Escrow protection
+                            Payment and order tracking
                         </p>
                         <p style={{ fontSize: '13px', color: '#1a1a1a' }}>
-                            Your payment is held securely until delivery is confirmed.
-                            If delivery fails, you are automatically refunded.
+                            A problem report is reviewed before a refund is requested. Refund and payout completion are shown only after provider confirmation.
                         </p>
                     </div>
 
+                    {order && <p><strong>{order.title}: R{Number(order.currentPrice).toFixed(2)}</strong><br/>
+                        {order.canPay ? 'This order is eligible for payment.' : `Payment is unavailable: ${(order.paymentEligibility || 'CHECK_ORDER').replaceAll('_',' ').toLowerCase()}.`}
+                    </p>}
                     <button
                         onClick={handlePay}
-                        disabled={loading}
+                        disabled={loading || !order?.canPay}
                         style={{
                             width: '100%', height: '40px',
                             background: loading ? '#93c5fd' : '#185FA5',

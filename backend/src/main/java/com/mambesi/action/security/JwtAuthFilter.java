@@ -43,7 +43,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     var user = userRepository.findByEmail(email).orElse(null);
 
-                    if (user != null) {
+                    if (user != null && !user.isBanned()) {
                         var authToken = new UsernamePasswordAuthenticationToken(
                                 user, null, user.getAuthorities()
                         );

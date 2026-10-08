@@ -23,11 +23,10 @@ export default function PaymentCancel() {
                         margin: '0 auto 16px', fontSize: '22px', color: '#b91c1c'
                     }}>✕</div>
                     <p style={{ fontSize: '20px', fontWeight: '500', marginBottom: '8px' }}>
-                        Payment cancelled
+                        Checkout interrupted
                     </p>
                     <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '24px' }}>
-                        Your payment was not completed. No money has been charged.
-                        You can try again from your dashboard.
+                        Returning from checkout does not prove that no charge occurred. Check your order’s payment status. Resume the existing attempt only if payment is still eligible.
                     </p>
                     <button
                         onClick={() => navigate('/buyer/dashboard')}

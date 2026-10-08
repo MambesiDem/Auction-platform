@@ -14,6 +14,31 @@ public class Delivery {
     @Id
     @GeneratedValue
     private UUID id;
+    @Version private Long version;
+    @Column private String pickupCode;
+    @Column private String deliveryCode;
+    @Column private Integer pickupCodeAttempts = 0;
+    @Column private Integer deliveryCodeAttempts = 0;
+    @Column private Boolean deliveryConfirmed = false;
+    @Column(length=2000) private String preparationEvidence;
+    @Column(length=2000) private String pickupEvidence;
+    @Column(length=2000) private String deliveryEvidence;
+    public String getPickupCode(){return pickupCode;}
+    public void setPickupCode(String value){pickupCode=value;}
+    public String getDeliveryCode(){return deliveryCode;}
+    public void setDeliveryCode(String value){deliveryCode=value;}
+    public int getPickupCodeAttempts(){return pickupCodeAttempts==null?0:pickupCodeAttempts;}
+    public void setPickupCodeAttempts(int n){pickupCodeAttempts=n;}
+    public int getDeliveryCodeAttempts(){return deliveryCodeAttempts==null?0:deliveryCodeAttempts;}
+    public void setDeliveryCodeAttempts(int n){deliveryCodeAttempts=n;}
+    public boolean isDeliveryConfirmed(){return Boolean.TRUE.equals(deliveryConfirmed);}
+    public void setDeliveryConfirmed(boolean b){deliveryConfirmed=b;}
+    public String getPreparationEvidence(){return preparationEvidence;}
+    public void setPreparationEvidence(String s){preparationEvidence=s;}
+    public String getPickupEvidence(){return pickupEvidence;}
+    public void setPickupEvidence(String s){pickupEvidence=s;}
+    public String getDeliveryEvidence(){return deliveryEvidence;}
+    public void setDeliveryEvidence(String s){deliveryEvidence=s;}
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "auction_id", nullable = false, unique = true)
@@ -42,13 +67,13 @@ public class Delivery {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.status = DeliveryStatus.PENDING;
+        this.createdAt = com.mambesi.action.common.AppTime.now();
+        if (this.status == null) this.status = DeliveryStatus.PENDING;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = com.mambesi.action.common.AppTime.now();
     }
 
     public Delivery() {}

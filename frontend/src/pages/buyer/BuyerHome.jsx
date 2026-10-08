@@ -1,8 +1,9 @@
+import RunnerUpOffers from '../../components/RunnerUpOffers';
+import { applyBid, latestPayment, auctionDate, useAuctionSync, auctionState, canPayForAuction } from '../../utils/auctionLifecycle';
 import { useEffect, useState, useCallback } from 'react';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
+import { getAllPages } from '../../api/transactions';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
@@ -14,6 +15,7 @@ export default function BuyerHome() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [auctions, setAuctions] = useState([]);
+    const [myActiveBids, setMyActiveBids] = useState([]);
     const [myWins, setMyWins] = useState([]);
     const [deliveries, setDeliveries] = useState([]);
     const [payments, setPayments] = useState([]);
@@ -21,87 +23,58 @@ export default function BuyerHome() {
     const [myLosses, setMyLosses] = useState([]);
     const [selectedAuction, setSelectedAuction] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [offers, setOffers] = useState([]);
     const [timers, setTimers] = useState({});
     const [paymentTimers, setPaymentTimers] = useState({});
     const [recentActivity, setRecentActivity] = useState([]);
 
     const fetchData = useCallback(async () => {
+        const offerRequest = axiosInstance.get('/api/auctions/offers').then(r => setOffers(r.data)).catch(e => console.error('Offers unavailable', e));
         try {
-            const [auctionsRes, winsRes, deliveriesRes, paymentsRes, lossesRes] = await Promise.all([
-                axiosInstance.get('/api/auctions'),
-                axiosInstance.get('/api/auctions/my-wins'),
+            const [auctionsRes, winsRes, deliveriesRes, paymentsRes, lossesRes, activeBidsRes] = await Promise.allSettled([
+                axiosInstance.get('/api/auctions', { params: { activeOnly: true, size: 20 } }),
+                getAllPages('/api/auctions/my-wins'),
                 axiosInstance.get('/api/deliveries/my-purchases'),
                 axiosInstance.get('/api/payments/my-payments'),
-                axiosInstance.get('/api/auctions/my-losses'),
+                getAllPages('/api/auctions/my-losses').catch(() => ({ data: [] })),
+                getAllPages('/api/auctions/my-active-bids'),
             ]);
-            const liveAuctions = auctionsRes.data.filter(a => a.active);
-            setAuctions(liveAuctions);
-            setMyWins(winsRes.data);
-            setDeliveries(deliveriesRes.data);
-            setPayments(paymentsRes.data);
-            setMyLosses(lossesRes.data);
-
-            // Build recent activity from wins and deliveries
-            const activity = [
-                ...winsRes.data.slice(0, 3).map(a => ({
-                    id: 'win-' + a.id,
-                    icon: '🏆',
-                    text: `You won an auction`,
-                    sub: a.title,
-                    time: 'Recently'
-                })),
-                ...deliveriesRes.data.slice(0, 3).map(d => ({
-                    id: 'del-' + d.id,
-                    icon: '📦',
-                    text: `Order ${d.status.toLowerCase().replace('_', ' ')}`,
-                    sub: d.auctionTitle,
-                    time: 'Recently'
-                })),
-            ].slice(0, 6);
-            setRecentActivity(activity);
+            const apply = (result, setter, transform = data => data) => {
+                if (result.status === 'fulfilled') setter(transform(result.value.data));
+                else console.error('Dashboard section failed', result.reason);
+            };
+            apply(auctionsRes, setAuctions, data => data.filter(a => auctionState(a) !== 'Closed'));
+            apply(winsRes, setMyWins); apply(deliveriesRes, setDeliveries); apply(paymentsRes, setPayments);
+            apply(lossesRes, setMyLosses); apply(activeBidsRes, setMyActiveBids);
+            const won = winsRes.status === 'fulfilled' ? winsRes.value.data : [];
+            const jobs = deliveriesRes.status === 'fulfilled' ? deliveriesRes.value.data : [];
+            setRecentActivity([
+                ...won.slice(0,3).map(a => ({ id: 'win-'+a.id, icon: '🏆', text: 'You won an auction', sub: a.title, time: 'Recently' })),
+                ...jobs.slice(0,3).map(d => ({ id: 'del-'+d.id, icon: '📦', text: 'Delivery '+d.status.toLowerCase().replaceAll('_',' '), sub:d.auctionTitle, time:'Recently' }))
+            ].slice(0,6));
 
         } catch (err) {
             console.error('Failed to fetch data', err);
         } finally {
+            await offerRequest;
             setLoading(false);
         }
     }, []);
 
     // WebSocket
-    useEffect(() => {
-        fetchData();
-        const client = new Client({
-            webSocketFactory: () => new SockJS(`${process.env.REACT_APP_API_URL}/ws-auction`),
-            onConnect: () => {
-                client.subscribe('/topic/bids', (message) => {
-                    const bid = JSON.parse(message.body);
-                    setAuctions(prev => prev.map(a =>
-                        a.id === bid.auctionId
-                            ? { ...a, currentPrice: bid.amount, endTime: bid.newEndTime || a.endTime, extended: true }
-                            : a
-                    ));
-                });
-                client.subscribe('/topic/auction-closed', () => {
-                    for (let i = 1; i <= 5; i++) {
-                        setTimeout(() => fetchData(), i * 2000);
-                    }
-                });
-                client.subscribe('/topic/auction-reassigned', () => fetchData());
-            },
-        });
-        client.activate();
-        return () => client.deactivate();
-    }, [fetchData]);
+    const clock = useAuctionSync(fetchData, true, bid => { setAuctions(prev => applyBid(prev, bid)); setMyActiveBids(prev => applyBid(prev, bid)); });
+
 
     // Auction countdown timers
     useEffect(() => {
-        const interval = setInterval(() => {
             const updated = {};
             auctions.forEach(a => {
                 const now = new Date();
-                const start = new Date(a.startTime);
-                const end = new Date(a.endTime);
-                if (now < start) {
+                const start = auctionDate(a.startTime);
+                const end = auctionDate(a.endTime);
+                if (!a.active) {
+                    updated[a.id] = { label: 'Closed', state: 'ended' };
+                } else if (now < start) {
                     const diff = start - now;
                     const h = Math.floor(diff / 3600000);
                     const m = Math.floor((diff % 3600000) / 60000);
@@ -118,31 +91,20 @@ export default function BuyerHome() {
                 }
             });
             setTimers(updated);
-        }, 1000);
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auctions]);
+    }, [auctions, clock]);
 
     // Payment deadline timers
     useEffect(() => {
-        const interval = setInterval(() => {
             const updated = {};
             myWins.forEach(a => {
                 if (!a.paymentDeadline) return;
-                const diff = new Date(a.paymentDeadline) - new Date();
+                const diff = auctionDate(a.paymentDeadline) - new Date();
                 updated[a.id] = diff <= 0 ? 'EXPIRED'
                     : `${Math.floor(diff / 60000)}:${String(Math.floor((diff % 60000) / 1000)).padStart(2,'0')}`;
             });
             setPaymentTimers(updated);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [myWins]);
+    }, [myWins, clock]);
 
-    // Polling
-    useEffect(() => {
-        const poll = setInterval(() => fetchData(), 30000);
-        return () => clearInterval(poll);
-    }, [fetchData]);
 
     const getStatusLabel = (status) => {
         const map = {
@@ -178,6 +140,7 @@ export default function BuyerHome() {
                 <TopBar />
 
                 <div className={styles.content}>
+                    <RunnerUpOffers offers={offers} refresh={fetchData} />
                     <div className={styles.center}>
 
                         {/* Hero */}
@@ -208,7 +171,7 @@ export default function BuyerHome() {
                         {/* Stats */}
                         <div className={styles.stats}>
                             {[
-                                { icon: '⚡', value: auctions.length, label: 'Active Bids', link: '/buyer/bids' },
+                                { icon: '⚡', value: myActiveBids.filter(a => auctionState(a, clock) !== 'Closed').length, label: 'Active Bids', link: '/buyer/bids' },
                                 { icon: '🏆', value: myWins.length, label: 'Won Auctions', link: '/buyer/orders' },
                                 { icon: '📦', value: pendingDeliveries, label: 'Orders', link: '/buyer/orders' },
                                 { icon: '❤️', value: 0, label: 'Watchlist', link: '/buyer/watchlist' },
@@ -231,12 +194,12 @@ export default function BuyerHome() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHead}>
                                         <h2 className={styles.sectionTitle}>Active Bids</h2>
-                                        <button className={styles.viewAll}>View all →</button>
+                                        <button className={styles.viewAll} onClick={() => navigate('/buyer/bids')}>View all →</button>
                                     </div>
-                                    {auctions.length === 0 ? (
-                                        <p className={styles.empty}>No live auctions right now.</p>
+                                    {myActiveBids.filter(a => auctionState(a, clock) !== 'Closed').length === 0 ? (
+                                        <p className={styles.empty}>No active bids right now.</p>
                                     ) : (
-                                        auctions.slice(0, 5).map(auction => {
+                                        myActiveBids.filter(a => auctionState(a, clock) !== 'Closed').slice(0, 5).map(auction => {
                                             const timer = timers[auction.id];
                                             const isLive = timer?.state === 'live';
                                             return (
@@ -284,13 +247,13 @@ export default function BuyerHome() {
                                     <div className={styles.section}>
                                         <div className={styles.sectionHead}>
                                             <h2 className={styles.sectionTitle}>My Wins</h2>
-                                            <button className={styles.viewAll}>View all →</button>
+                                            <button className={styles.viewAll} onClick={() => navigate('/buyer/bids')}>View all →</button>
                                         </div>
                                         {myWins.slice(0, 3).map(auction => {
-                                            const payment = payments.find(p => p.auctionId === auction.id);
+                                            const payment = latestPayment(payments, auction);
                                             const delivery = deliveries.find(d => d.auctionId === auction.id);
                                             const paymentTimer = paymentTimers[auction.id];
-                                            const paymentPending = !payment || payment.status === 'PENDING';
+                                            const canPay = canPayForAuction(auction, payment);
 
                                             return (
                                                 <div key={auction.id} className={styles.auctionRow}>
@@ -304,14 +267,14 @@ export default function BuyerHome() {
                                                         <p className={styles.auctionMeta}>
                                                             R{auction.currentPrice?.toLocaleString()}
                                                         </p>
-                                                        {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
+                                                        {canPay && (
                                                             <p className={styles.urgentText}>
-                                                                ⏱ Pay within {paymentTimer}
+                                                                ⏱ Pay within {paymentTimer || 'the payment deadline'}
                                                             </p>
                                                         )}
                                                     </div>
                                                     <div className={styles.auctionRight}>
-                                                        {paymentPending && paymentTimer && paymentTimer !== 'EXPIRED' && (
+                                                        {canPay && (
                                                             <button
                                                                 className={styles.payBtn}
                                                                 onClick={() => navigate(`/payment/${auction.id}`)}
@@ -325,7 +288,7 @@ export default function BuyerHome() {
                                                                 payment.status === 'RELEASED' ? styles.statusGreen :
                                                                 styles.statusGray
                                                             }`}>
-                                                                {payment.status === 'HELD' ? 'In Escrow' :
+                                                                {payment.status === 'HELD' ? 'Payment Confirmed' :
                                                                  payment.status === 'RELEASED' ? 'Paid' :
                                                                  payment.status === 'REFUNDED' ? 'Refunded' : ''}
                                                             </span>
@@ -352,7 +315,7 @@ export default function BuyerHome() {
                                         <p className={styles.empty}>No recommendations yet.</p>
                                     ) : (
                                         <div className={styles.cardGrid}>
-                                            {auctions.slice(0, 4).map(auction => {
+                                            {auctions.filter(a => auctionState(a, clock) !== 'Closed').slice(0, 4).map(auction => {
                                                 const timer = timers[auction.id];
                                                 return (
                                                     <div key={'rec-' + auction.id} className={styles.card}>

@@ -37,6 +37,7 @@ public class BidController {
         return mapToResponse(bid);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping("/{auctionId}")
     public List<BidResponse> getBidsForAuction(@PathVariable UUID auctionId) {
         return bidService.getBidsForAuction(auctionId)
@@ -49,7 +50,7 @@ public class BidController {
         return new BidResponse(
                 bid.getId(),
                 bid.getAmount(),
-                bid.getBidder().getEmail(),
+                null,
                 bid.getTimestamp()
         );
     }

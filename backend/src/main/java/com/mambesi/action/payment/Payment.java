@@ -14,9 +14,24 @@ public class Payment {
     @Id
     @GeneratedValue
     private UUID id;
+    @Version private Long version;
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="original_attempt_id") private Payment originalAttempt;
+    public Payment getOriginalAttempt(){return originalAttempt;} public void setOriginalAttempt(Payment p){originalAttempt=p;}
+    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="order_id") private com.mambesi.action.order.Order order;
+    @Column private LocalDateTime releaseDueAt;
+    @Column(length=300) private String settlementReference;
+    @Column(length=300) private String refundReference;
+    public com.mambesi.action.order.Order getOrder(){return order;}
+    public void setOrder(com.mambesi.action.order.Order o){order=o;}
+    public LocalDateTime getReleaseDueAt(){return releaseDueAt;}
+    public void setReleaseDueAt(LocalDateTime t){releaseDueAt=t;}
+    public String getSettlementReference(){return settlementReference;}
+    public void setSettlementReference(String r){settlementReference=r;}
+    public String getRefundReference(){return refundReference;}
+    public void setRefundReference(String r){refundReference=r;}
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "auction_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "auction_id", nullable = false)
     private AuctionItem auctionItem;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -27,14 +42,14 @@ public class Payment {
     @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
 
-    @Column(nullable = false)
-    private double totalAmount;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal totalAmount;
 
-    @Column(nullable = false)
-    private double commissionAmount;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal commissionAmount;
 
-    @Column(nullable = false)
-    private double sellerAmount;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal sellerAmount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -51,8 +66,8 @@ public class Payment {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.status = PaymentStatus.PENDING;
+        this.createdAt = com.mambesi.action.common.AppTime.now();
+        if (this.status == null) this.status = PaymentStatus.PENDING;
     }
 
     public Payment() {}
@@ -68,14 +83,14 @@ public class Payment {
     public User getSeller() { return seller; }
     public void setSeller(User seller) { this.seller = seller; }
 
-    public double getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(double totalAmount) { this.totalAmount = totalAmount; }
+    public double getTotalAmount() { return totalAmount == null ? 0.0 : totalAmount.doubleValue(); }
+    public void setTotalAmount(double totalAmount) { this.totalAmount = com.mambesi.action.common.Money.value(totalAmount); }
 
-    public double getCommissionAmount() { return commissionAmount; }
-    public void setCommissionAmount(double commissionAmount) { this.commissionAmount = commissionAmount; }
+    public double getCommissionAmount() { return commissionAmount == null ? 0.0 : commissionAmount.doubleValue(); }
+    public void setCommissionAmount(double commissionAmount) { this.commissionAmount = com.mambesi.action.common.Money.value(commissionAmount); }
 
-    public double getSellerAmount() { return sellerAmount; }
-    public void setSellerAmount(double sellerAmount) { this.sellerAmount = sellerAmount; }
+    public double getSellerAmount() { return sellerAmount == null ? 0.0 : sellerAmount.doubleValue(); }
+    public void setSellerAmount(double sellerAmount) { this.sellerAmount = com.mambesi.action.common.Money.value(sellerAmount); }
 
     public PaymentStatus getStatus() { return status; }
     public void setStatus(PaymentStatus status) { this.status = status; }

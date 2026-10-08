@@ -231,7 +231,7 @@ export default function SellerDashboard() {
                 <div className={styles.stats}>
                     <StatCard label="Active auctions"    value={activeAuctions.length} />
                     <StatCard label="Released earnings"  value={`R${totalRevenue.toLocaleString()}`} />
-                    <StatCard label="In escrow"          value={`R${pendingEarnings.toLocaleString()}`} />
+                    <StatCard label="Payment confirmed"          value={`R${pendingEarnings.toLocaleString()}`} />
                     <StatCard label="Pending deliveries" value={pendingDeliveries} />
                 </div>
 
@@ -413,7 +413,7 @@ export default function SellerDashboard() {
                                                 payment.status === 'REFUNDED' ? styles.statusCancelled :
                                                 styles.statusPending
                                             }`}>
-                                                {payment.status === 'HELD'     ? 'In escrow' :
+                                                {payment.status === 'HELD'     ? 'Payment confirmed' :
                                                  payment.status === 'RELEASED' ? `R${payment.sellerAmount?.toLocaleString()} released` :
                                                  payment.status === 'REFUNDED' ? 'Refunded' :
                                                  payment.status === 'PENDING'  ? 'Awaiting payment' : ''}
@@ -427,7 +427,7 @@ export default function SellerDashboard() {
                                             </span>
                                         )}
 
-                                        {/* Create delivery — disabled until payment in escrow */}
+                                        {/* Create delivery — disabled until payment confirmed by the payment provider */}
                                         {!auction.active && auction.winnerEmail && !deliveryExistsFor(auction.id) && (
                                             <button
                                                 className={styles.outlineBtn}

@@ -1,7 +1,7 @@
+import { applyBid, auctionDate, useAuctionSync, auctionState } from '../../utils/auctionLifecycle';
 import { useEffect, useState, useCallback } from 'react';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import axiosInstance from '../../api/axiosInstance';
+import { getAllPages } from '../../api/transactions';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
@@ -37,8 +37,8 @@ export default function BuyerBrowse() {
 
     const fetchData = useCallback(async () => {
         try {
-            const res = await axiosInstance.get('/api/auctions');
-            setAuctions(res.data.filter(a => a.active));
+            const res = await getAllPages('/api/auctions', { activeOnly: true });
+            setAuctions(res.data.filter(a => auctionState(a) !== 'Closed'));
         } catch (err) {
             console.error('Failed to fetch auctions', err);
         } finally {
@@ -47,27 +47,8 @@ export default function BuyerBrowse() {
     }, []);
 
     // WebSocket for live price updates
-    useEffect(() => {
-        fetchData();
-        const client = new Client({
-            webSocketFactory: () => new SockJS(`${process.env.REACT_APP_API_URL}/ws-auction`),
-            onConnect: () => {
-                client.subscribe('/topic/bids', (message) => {
-                    const bid = JSON.parse(message.body);
-                    setAuctions(prev => prev.map(a =>
-                        a.id === bid.auctionId
-                            ? { ...a, currentPrice: bid.amount, endTime: bid.newEndTime || a.endTime, extended: true }
-                            : a
-                    ));
-                });
-                client.subscribe('/topic/auction-closed', () => {
-                    fetchData();
-                });
-            },
-        });
-        client.activate();
-        return () => client.deactivate();
-    }, [fetchData]);
+    const clock = useAuctionSync(fetchData, true, bid => { setAuctions(prev => applyBid(prev, bid)); });
+
 
     useEffect(() => {
         const q = searchParams.get('q');
@@ -79,7 +60,7 @@ export default function BuyerBrowse() {
 
     // Apply filters and sort
     useEffect(() => {
-        let result = [...auctions];
+        let result = auctions.filter(a => auctionState(a, clock) !== 'Closed');
 
         // Search
         if (search.trim()) {
@@ -97,10 +78,10 @@ export default function BuyerBrowse() {
         // Sort
         switch (sort) {
             case 'ending':
-                result.sort((a, b) => new Date(a.endTime) - new Date(b.endTime));
+                result.sort((a, b) => auctionDate(a.endTime) - auctionDate(b.endTime));
                 break;
             case 'newest':
-                result.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+                result.sort((a, b) => auctionDate(b.startTime) - auctionDate(a.startTime));
                 break;
             case 'price_asc':
                 result.sort((a, b) => a.currentPrice - b.currentPrice);
@@ -113,7 +94,7 @@ export default function BuyerBrowse() {
         }
 
         setFiltered(result);
-    }, [auctions, search, category, sort, minPrice, maxPrice]);
+    }, [clock, auctions, search, category, sort, minPrice, maxPrice]);
 
 
     const toggleWatchlist = async (e, auctionId) => {
@@ -133,13 +114,14 @@ export default function BuyerBrowse() {
 
     // Countdown timers
     useEffect(() => {
-        const interval = setInterval(() => {
             const updated = {};
             auctions.forEach(a => {
                 const now = new Date();
-                const start = new Date(a.startTime);
-                const end = new Date(a.endTime);
-                if (now < start) {
+                const start = auctionDate(a.startTime);
+                const end = auctionDate(a.endTime);
+                if (!a.active) {
+                    updated[a.id] = { label: 'Closed', state: 'ended' };
+                } else if (now < start) {
                     const diff = start - now;
                     const h = Math.floor(diff / 3600000);
                     const m = Math.floor((diff % 3600000) / 60000);
@@ -162,10 +144,7 @@ export default function BuyerBrowse() {
                 }
             });
             setTimers(updated);
-        }, 1000);
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [auctions]);
+    }, [auctions, clock]);
 
     const clearFilters = () => {
         setSearch('');

@@ -1,4 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { latestPayment } from '../../utils/auctionLifecycle';
+import { getAllPages } from '../../api/transactions';
+import { useAuctionSync, auctionState, auctionLabel, toSaLocalDateTime } from '../../utils/auctionLifecycle';
+import { useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
@@ -37,7 +40,7 @@ export default function SellerListings() {
     const fetchData = useCallback(async () => {
         try {
             const [auctionsRes, paymentsRes, deliveriesRes] = await Promise.all([
-                axiosInstance.get('/api/auctions'),
+                getAllPages('/api/auctions/my-listings'),
                 axiosInstance.get('/api/payments/my-earnings'),
                 axiosInstance.get('/api/deliveries/my-sales'),
             ]);
@@ -52,9 +55,9 @@ export default function SellerListings() {
         }
     }, [user]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const clock = useAuctionSync(fetchData, true);
+
+
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -117,13 +120,13 @@ export default function SellerListings() {
                 title,
                 description,
                 startingPrice: parseFloat(startingPrice),
-                startTime: startTime + ':00',
-                endTime: endTime + ':00',
+                startTime: toSaLocalDateTime(startTime),
+                endTime: toSaLocalDateTime(endTime),
                 imageUrl,
                 reservePrice: form.reservePrice ? parseFloat(form.reservePrice) : 0,
             });
             setForm(EMPTY_FORM);
-            setFormSuccess('Auction created successfully!');
+            setFormSuccess('Auction created. Bids increase by at least R5. Accepted bids in the last three minutes reset the remaining time to three minutes.');
             setShowForm(false);
             fetchData();
         } catch (err) {
@@ -148,7 +151,9 @@ export default function SellerListings() {
 
     const handleCreateDelivery = async (auctionId) => {
         try {
-            await axiosInstance.post('/api/deliveries', { auctionId });
+            const preparationEvidence = window.prompt('Before collection, confirm that the item matches the listing. Record its condition, packaging and photo reference:');
+            if (!preparationEvidence?.trim()) return;
+            await axiosInstance.post('/api/deliveries', { auctionId, preparationEvidence });
             fetchData();
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to create delivery.');
@@ -170,8 +175,8 @@ export default function SellerListings() {
 
     const filtered = (() => {
         switch (activeTab) {
-            case 'Active': return auctions.filter(a => a.active);
-            case 'Closed': return auctions.filter(a => !a.active && a.winnerEmail);
+            case 'Active': return auctions.filter(a => auctionState(a, clock) !== 'Closed');
+            case 'Closed': return auctions.filter(a => auctionState(a, clock) === 'Closed');
             case 'No Winner': return auctions.filter(a => !a.active && !a.winnerEmail);
             default: return auctions;
         }
@@ -179,8 +184,8 @@ export default function SellerListings() {
 
     const tabCount = (tab) => {
         switch (tab) {
-            case 'Active': return auctions.filter(a => a.active).length;
-            case 'Closed': return auctions.filter(a => !a.active && a.winnerEmail).length;
+            case 'Active': return auctions.filter(a => auctionState(a, clock) !== 'Closed').length;
+            case 'Closed': return auctions.filter(a => auctionState(a, clock) === 'Closed').length;
             case 'No Winner': return auctions.filter(a => !a.active && !a.winnerEmail).length;
             default: return auctions.length;
         }
@@ -399,17 +404,18 @@ export default function SellerListings() {
                     ) : (
                         <div className={styles.listingsList}>
                             {filtered.map(auction => {
-                                const payment = payments.find(p => p.auctionId === auction.id);
+                                const payment = latestPayment(payments, auction);
                                 const paymentReady = payment &&
-                                    (payment.status === 'HELD' || payment.status === 'RELEASED');
-                                const auctionPayment = payments.find(p => p.auctionId === auction.id);
+                                    payment.status === 'HELD' && ['PREPARATION','COLLECTION_PENDING'].includes(auction.orderStatus);
+                                const auctionPayment = latestPayment(payments, auction);
                                 const paymentLocked = auctionPayment &&
                                     (auctionPayment.status === 'HELD' || auctionPayment.status === 'RELEASED');
                                 const auctionDelivery = deliveries.find(d => d.auctionId === auction.id);
                                 const deliveryLocked = auctionDelivery &&
                                     auctionDelivery.status !== 'PENDING' &&
                                     auctionDelivery.status !== 'CANCELLED';
-                                const canDelete = !paymentLocked && !deliveryLocked;
+                                const canDelete = !auction.hasBids && !auction.winnerEmail && !auction.orderStatus
+                                    && !auctionPayment && !auctionDelivery && !paymentLocked && !deliveryLocked;
 
                                 return (
                                     <div key={auction.id} className={styles.listingCard}>
@@ -427,9 +433,9 @@ export default function SellerListings() {
                                                 </div>
                                             )}
                                             <span className={`${styles.listingStatus} ${
-                                                auction.active ? styles.statusActive : styles.statusClosed
+                                                auctionState(auction, clock) !== 'Closed' ? styles.statusActive : styles.statusClosed
                                             }`}>
-                                                {auction.active ? 'Live' : 'Closed'}
+                                                {auctionLabel(auction, clock)}
                                             </span>
                                         </div>
 
@@ -461,7 +467,7 @@ export default function SellerListings() {
                                                             payment.status === 'RELEASED' ? styles.textGreen :
                                                             styles.textAmber
                                                         }`}>
-                                                            {payment.status === 'HELD'     ? 'In escrow' :
+                                                            {payment.status === 'HELD'     ? 'Payment confirmed' :
                                                              payment.status === 'RELEASED' ? `R${payment.sellerAmount?.toLocaleString()} released` :
                                                              payment.status === 'REFUNDED' ? 'Refunded' :
                                                              'Awaiting payment'}

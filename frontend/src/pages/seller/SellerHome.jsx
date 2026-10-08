@@ -1,4 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { getAllPages } from '../../api/transactions';
+import { useAuctionSync, auctionState, auctionLabel } from '../../utils/auctionLifecycle';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
@@ -18,7 +20,7 @@ export default function SellerHome() {
     const fetchData = useCallback(async () => {
         try {
             const [auctionsRes, deliveriesRes, paymentsRes] = await Promise.all([
-                axiosInstance.get('/api/auctions'),
+                getAllPages('/api/auctions/my-listings'),
                 axiosInstance.get('/api/deliveries/my-sales'),
                 axiosInstance.get('/api/payments/my-earnings'),
             ]);
@@ -33,18 +35,12 @@ export default function SellerHome() {
         }
     }, [user]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const clock = useAuctionSync(fetchData, true);
 
-    // Poll every 30 seconds
-    useEffect(() => {
-        const poll = setInterval(() => fetchData(), 30000);
-        return () => clearInterval(poll);
-    }, [fetchData]);
 
-    const activeAuctions = auctions.filter(a => a.active);
-    const closedAuctions = auctions.filter(a => !a.active);
+
+    const activeAuctions = auctions.filter(a => auctionState(a, clock) !== 'Closed');
+    const closedAuctions = auctions.filter(a => auctionState(a, clock) === 'Closed');
     const totalEarnings = payments
         .filter(p => p.status === 'RELEASED')
         .reduce((sum, p) => sum + (p.sellerAmount || 0), 0);
@@ -124,7 +120,7 @@ export default function SellerHome() {
                                 <p className={styles.statValue}>R{totalEarnings.toLocaleString()}</p>
                                 <p className={styles.statLabel}>Total Earnings</p>
                                 {inEscrow > 0 && (
-                                    <p className={styles.statSub}>+R{inEscrow.toLocaleString()} in escrow</p>
+                                    <p className={styles.statSub}>+R{inEscrow.toLocaleString()} confirmed by the payment provider</p>
                                 )}
                             </div>
                         </div>
@@ -268,7 +264,7 @@ export default function SellerHome() {
                                                     Current: R{auction.currentPrice?.toLocaleString()}
                                                 </p>
                                             </div>
-                                            <span className={styles.activeBadge}>Live</span>
+                                            <span className={styles.activeBadge}>{auctionLabel(auction, clock)}</span>
                                         </div>
                                     ))
                                 )}
@@ -325,7 +321,7 @@ export default function SellerHome() {
                                     </span>
                                 </div>
                                 <div className={styles.earningRow}>
-                                    <span className={styles.earningLabel}>In escrow</span>
+                                    <span className={styles.earningLabel}>Payment confirmed</span>
                                     <span className={styles.earningValue}>
                                         R{inEscrow.toLocaleString()}
                                     </span>

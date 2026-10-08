@@ -5,9 +5,11 @@ import java.time.LocalDateTime;
 
 public class AuctionRequest {
 
+    @Size(max=200, message="Title must be at most 200 characters")
     @NotBlank(message = "Title is required")
     private String title;
 
+    @Size(max=10000, message="Description must be at most 10000 characters")
     @NotBlank(message = "Description is required")
     private String description;
 
@@ -20,11 +22,12 @@ public class AuctionRequest {
     @NotNull(message = "End time is required")
     private LocalDateTime endTime;
 
-    private String imageUrl;
+    @Size(max=2000) private String imageUrl;
     private int extensionThresholdMinutes = 3;
     private int extensionDurationMinutes = 3;
     private double bidIncrement = 5.0;
 
+    @PositiveOrZero(message="Reserve price cannot be negative")
     private double reservePrice = 0.0;
 
     public double getReservePrice() { return reservePrice; }

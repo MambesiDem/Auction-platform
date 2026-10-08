@@ -1,354 +1,124 @@
 package com.mambesi.action.payment;
-
-import com.mambesi.action.auction.AuctionItem;
-import com.mambesi.action.auction.AuctionRepository;
-import com.mambesi.action.delivery.DeliveryRepository;
-import com.mambesi.action.delivery.DeliveryStatus;
+import com.mambesi.action.auction.*;
+import com.mambesi.action.order.*;
+import com.mambesi.action.delivery.*;
+import com.mambesi.action.common.*;
 import com.mambesi.action.notification.EmailService;
-import com.mambesi.action.order.Order;
-import com.mambesi.action.order.OrderService;
-import com.mambesi.action.order.OrderStatus;
 import com.mambesi.action.payment.dto.PaymentResponse;
-import com.mambesi.action.user.User;
-import com.mambesi.action.user.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
-
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
-import org.springframework.scheduling.annotation.Async;
-//import java.util.concurrent.TimeUnit;
-
 @Service
 public class PaymentService {
-
-    private final PaymentRepository paymentRepository;
-    private final AuctionRepository auctionRepository;
-    private final UserRepository userRepository;
-
-    private final DeliveryRepository deliveryRepository;
-    private final TaskScheduler taskScheduler;
-
-    @Value("${payfast.merchant-id}")
-    private String merchantId;
-
-    @Value("${payfast.merchant-key}")
-    private String merchantKey;
-
-    @Value("${payfast.passphrase}")
-    private String passphrase;
-
-    @Value("${payfast.sandbox}")
-    private boolean sandbox;
-
-    @Value("${payfast.return-url}")
-    private String returnUrl;
-
-    @Value("${payfast.cancel-url}")
-    private String cancelUrl;
-
-    @Value("${payfast.notify-url}")
-    private String notifyUrl;
-
-    @Value("${platform.commission}")
-    private double commissionRate;
-
-    private final EmailService emailService;
-
-    @Autowired
-    private OrderService orderService;
-
-    public PaymentService(PaymentRepository paymentRepository,
-                          AuctionRepository auctionRepository,
-                          UserRepository userRepository,
-                          DeliveryRepository deliveryRepository,
-                          TaskScheduler taskScheduler,
-                          EmailService emailService) {
-        this.paymentRepository = paymentRepository;
-        this.auctionRepository = auctionRepository;
-        this.userRepository = userRepository;
-        this.deliveryRepository = deliveryRepository;
-        this.taskScheduler = taskScheduler;
-        this.emailService = emailService;
+    @org.springframework.beans.factory.annotation.Autowired private com.mambesi.action.user.UserRepository users;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
+    private final PaymentRepository payments;private final AuctionRepository auctions;private final OrderService orders;
+    private final DeliveryRepository deliveries;private final PaymentEventRepository events;private final PayfastClient provider;private final EmailService email;
+    public PaymentService(PaymentRepository p,AuctionRepository a,OrderService o,DeliveryRepository d,PaymentEventRepository e,PayfastClient f,EmailService m){payments=p;auctions=a;orders=o;deliveries=d;events=e;provider=f;email=m;}
+    @Transactional public String initiatePayment(UUID auctionId,String buyer){
+        provider.requireCheckoutAllowed();AuctionItem a=lock(auctionId);Order o=orders.getByAuctionId(auctionId);
+        if(a.isActive() || !o.getBuyer().getEmail().equals(buyer) || a.getWinner()==null || !a.getWinner().getId().equals(o.getBuyer().getId()))throw new SecurityException("Only the current committed buyer can pay.");
+        if(o.getStatus()!=OrderStatus.AWAITING_PAYMENT || o.getPaymentDeadline()==null || !AppTime.now().isBefore(o.getPaymentDeadline()))throw new IllegalArgumentException("Payment is not available for this order. If you already attempted payment, contact support.");
+        Optional<Payment> latest=payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId());
+        if(latest.isPresent() && latest.get().getStatus()==PaymentStatus.PENDING)return provider.checkout(latest.get()); // Resume the same attempt.
+        if(latest.isPresent() && latest.get().getStatus()!=PaymentStatus.FAILED)throw new IllegalArgumentException("This order already has a confirmed or unresolved payment.");
+        Payment p=new Payment();p.setAuctionItem(a);p.setOrder(o);p.setBuyer(o.getBuyer());p.setSeller(a.getOwner());p.setTotalAmount(o.getAgreedPrice());
+        var fee=Money.fee(o.getAgreedPrice(),o.getCommissionRate());p.setCommissionAmount(fee.doubleValue());p.setSellerAmount(Money.value(o.getAgreedPrice()).subtract(fee).doubleValue());p.setStatus(PaymentStatus.PENDING);payments.saveAndFlush(p);
+        events.save(new PaymentEvent(p,null,PaymentStatus.PENDING,buyer,"Hosted checkout attempt created"));return provider.checkout(p);
     }
-
-    @Async
-    public void scheduleRelease(UUID auctionId) {
-        try {
-            taskScheduler.schedule(
-                    () -> releasePayment(auctionId),
-                    new Date(System.currentTimeMillis() + 5 * 60 * 1000)   //release it after 5 minutes
-            );
-            System.out.println("Payment auto-released for auction: " + auctionId);
-        } catch (Exception e) {
-            System.out.println("Payment release failed for auction: " + auctionId + " - " + e.getMessage());
+    // Validation occurs before the financial transaction to avoid holding item locks during network calls.
+    public ValidatedNotification validateNotification(String raw,String remote,String forwarded){
+        var data=provider.parse(raw);UUID id;
+        try{id=UUID.fromString(data.get("m_payment_id"));}catch(Exception e){throw new IllegalArgumentException("Invalid payment reference.");}
+        Payment p=payments.findById(id).orElseThrow(()->new IllegalArgumentException("Payment attempt not found."));
+        provider.validate(data,remote,forwarded,p.getTotalAmount());String status=data.get("payment_status"),ref=data.get("pf_payment_id");
+        if(ref==null || ref.isBlank())throw new IllegalArgumentException("Provider transaction reference is required.");
+        if(!Set.of("COMPLETE","FAILED","CANCELLED").contains(status))throw new IllegalArgumentException("Unsupported payment notification status.");
+        return new ValidatedNotification(id,ref,status);
+    }
+    public record ValidatedNotification(UUID paymentId,String providerId,String status){}
+    @Transactional public void applyNotification(ValidatedNotification n){
+        Payment before=payments.findById(n.paymentId()).orElseThrow();lock(before.getAuctionItem().getId());entityManager.refresh(before);Payment p=before;
+        Optional<Payment> other=payments.findByPayfastPaymentId(n.providerId());
+        if(other.isPresent() && !other.get().getId().equals(p.getId())) {
+            if(other.get().getOriginalAttempt()!=null && other.get().getOriginalAttempt().getId().equals(p.getId()))return;
+            throw new SecurityException("Provider transaction is already linked to another attempt.");
         }
-    }
-
-    // Create a payment record and return the PayFast redirect URL
-    public String initiatePayment(UUID auctionId, String buyerEmail) {
-
-        AuctionItem auction = auctionRepository.findById(auctionId)
-                .orElseThrow(() -> new RuntimeException("Auction not found"));
-
-        if (auction.isActive()) {
-            throw new RuntimeException("Auction is still active.");
+        if(p.getPayfastPaymentId()!=null && !p.getPayfastPaymentId().equals(n.providerId())) {
+            if(!"COMPLETE".equals(n.status()))return;
+            // A resumed hosted checkout can yield another genuine charge. Preserve the original
+            // transaction and record the additional receipt for refund review, never a second sale.
+            Payment extra=new Payment();extra.setOriginalAttempt(p);extra.setAuctionItem(p.getAuctionItem());extra.setBuyer(p.getBuyer());extra.setSeller(p.getSeller());
+            extra.setTotalAmount(p.getTotalAmount());extra.setCommissionAmount(0);extra.setSellerAmount(0);extra.setPaidAt(AppTime.now());extra.setPayfastPaymentId(n.providerId());extra.setStatus(PaymentStatus.REVIEW_REQUIRED);payments.save(extra);
+            events.save(new PaymentEvent(extra,null,PaymentStatus.REVIEW_REQUIRED,"provider","Additional verified charge on resumed checkout; refund review required"));return;
         }
-
-        if (auction.getWinner() == null) {
-            throw new RuntimeException("No winner for this auction.");
+        if(!"COMPLETE".equals(n.status())){
+            if(p.getStatus()==PaymentStatus.PENDING){p.setPayfastPaymentId(n.providerId());change(p,PaymentStatus.FAILED,"provider","Verified failed or cancelled payment notification");}return;
         }
-
-        if (!auction.getWinner().getEmail().equals(buyerEmail)) {
-            throw new RuntimeException("You are not the winner of this auction.");
+        if(p.getStatus()!=PaymentStatus.PENDING && p.getStatus()!=PaymentStatus.FAILED)return; // Duplicate success cannot reverse refund/payout state.
+        p.setPayfastPaymentId(n.providerId());p.setPaidAt(AppTime.now());Order o=p.getOrder();
+        if(o==null || o.getStatus()!=OrderStatus.AWAITING_PAYMENT){change(p,PaymentStatus.REVIEW_REQUIRED,"provider","Payment received for an order that is no longer awaiting payment; review/refund required");return;}
+        change(p,PaymentStatus.HELD,"provider","Buyer payment verified; no escrow or payout is implied");
+        orders.transitionStatus(o.getId(),OrderStatus.PREPARATION,"provider","Verified buyer payment");
+        AfterCommit.run(()->{email.sendPaymentConfirmedEmail(p.getBuyer().getEmail(),p.getAuctionItem().getTitle(),p.getTotalAmount());email.sendSellerPaymentReceivedEmail(p.getSeller().getEmail(),p.getAuctionItem().getTitle(),p.getSellerAmount());});
+    }
+    @Transactional public Payment cancelPayment(UUID auctionId,String buyer){
+        lock(auctionId);Order o=orders.getByAuctionId(auctionId);
+        if(!o.getBuyer().getEmail().equals(buyer))throw new SecurityException("This order belongs to another buyer.");
+        Payment p=payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId()).orElseThrow(()->new IllegalArgumentException("No payment found."));
+        if(p.getStatus()==PaymentStatus.REFUND_REQUESTED || p.getStatus()==PaymentStatus.REFUNDED)return p;
+        if(p.getStatus()!=PaymentStatus.HELD || !Set.of(OrderStatus.PREPARATION,OrderStatus.COLLECTION_PENDING).contains(o.getStatus()))throw new IllegalArgumentException("Use the problem-reporting process after pickup.");
+        Optional<Delivery> job=deliveries.findByAuctionItemId(auctionId);
+        if(job.isPresent()){
+            Delivery d=job.get();if(!Set.of(DeliveryStatus.PENDING,DeliveryStatus.ACCEPTED).contains(d.getStatus()))throw new IllegalArgumentException("The item has already been collected.");
+            d.setStatus(DeliveryStatus.CANCELLED);deliveries.save(d);
         }
-
-        // Check if payment already exists
-        Optional<Payment> existing = paymentRepository.findByAuctionItemId(auctionId);
-        if (existing.isPresent() && existing.get().getStatus() != PaymentStatus.FAILED) {
-            throw new RuntimeException("Payment already initiated for this auction.");
+        orders.transitionStatus(o.getId(),OrderStatus.CANCELLED,buyer,"Buyer requested cancellation before pickup");p.setReleaseDueAt(null);change(p,PaymentStatus.REFUND_REQUESTED,buyer,"Cancellation approved; provider refund still required");return p;
+    }
+    @Transactional public void scheduleRelease(UUID auctionId){
+        lock(auctionId);Order o=orders.getByAuctionId(auctionId);Payment p=payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId()).orElseThrow();
+        Delivery d=deliveries.findByAuctionItemId(auctionId).orElseThrow();
+        if(d.getStatus()!=DeliveryStatus.DELIVERED || !d.isDeliveryConfirmed() || o.getStatus()!=OrderStatus.DELIVERED || p.getStatus()!=PaymentStatus.HELD)throw new IllegalArgumentException("Confirmed handover is required before settlement eligibility.");
+        // Five minutes is a sandbox operational review window, not a limit on later valid claims.
+        if(p.getReleaseDueAt()==null){p.setReleaseDueAt(AppTime.now().plusMinutes(5));payments.save(p);}
+    }
+    @Transactional public Payment releasePayment(UUID auctionId){
+        lock(auctionId);Order o=orders.getByAuctionId(auctionId);Payment p=payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId()).orElseThrow();
+        if(p.getStatus()!=PaymentStatus.HELD || p.getReleaseDueAt()==null || AppTime.now().isBefore(p.getReleaseDueAt()) || o.getStatus()!=OrderStatus.DELIVERED)return p;
+        Delivery d=deliveries.findByAuctionItemId(auctionId).orElseThrow();
+        if(d.getStatus()!=DeliveryStatus.DELIVERED || !d.isDeliveryConfirmed())return p;
+        change(p,PaymentStatus.RELEASE_REQUESTED,"system","Settlement eligible after documented delivery; provider payout not yet confirmed");return p;
+    }
+    @Transactional public Payment recordSettlement(UUID id,boolean refund,String reference,String admin){
+        Payment initial=payments.findById(id).orElseThrow(()->new IllegalArgumentException("Payment not found."));lock(initial.getAuctionItem().getId());entityManager.refresh(initial);Payment p=initial;
+        if(reference==null || reference.isBlank() || reference.length()>300)throw new IllegalArgumentException("A provider/bank reconciliation reference is required.");
+        if(provider.isSandbox() && !reference.startsWith("SANDBOX-"))throw new IllegalArgumentException("Sandbox confirmations must use a SANDBOX- reference; they do not transfer money.");
+        if(!provider.isSandbox() && reference.startsWith("SANDBOX-"))throw new IllegalArgumentException("A sandbox reference cannot confirm a live transfer.");
+        Order o=p.getOrder();if(o==null && !refund)throw new IllegalArgumentException("An order is required for seller payout.");
+        if(refund){
+            if(p.getStatus()!=PaymentStatus.REFUND_REQUESTED)throw new IllegalArgumentException("Refund must first be approved and requested.");
+            p.setRefundReference(reference);change(p,PaymentStatus.REFUNDED,admin,"External provider refund reconciled: "+reference);
+        }else{
+            if(p.getStatus()!=PaymentStatus.RELEASE_REQUESTED || o==null || o.getStatus()!=OrderStatus.DELIVERED)throw new IllegalArgumentException("Settlement is paused or not eligible.");
+            p.setSettlementReference(reference);p.setReleasedAt(AppTime.now());change(p,PaymentStatus.RELEASED,admin,"External seller payout reconciled: "+reference);orders.transitionStatus(o.getId(),OrderStatus.COMPLETED,admin,"Seller payout reconciled");
         }
-
-        User buyer = userRepository.findByEmail(buyerEmail)
-                .orElseThrow(() -> new RuntimeException("Buyer not found"));
-
-        double total = auction.getCurrentPrice();
-        double commission = Math.round(total * commissionRate * 100.0) / 100.0;
-        double sellerAmount = Math.round((total - commission) * 100.0) / 100.0;
-
-        Payment payment = new Payment();
-        payment.setAuctionItem(auction);
-        payment.setBuyer(buyer);
-        payment.setSeller(auction.getOwner());
-        payment.setTotalAmount(total);
-        payment.setCommissionAmount(commission);
-        payment.setSellerAmount(sellerAmount);
-        paymentRepository.save(payment);
-
-        return buildPayFastUrl(payment, buyer, auction);
+        return p;
     }
-
-    // Build the PayFast redirect URL with MD5 signature
-    private String buildPayFastUrl(Payment payment, User buyer, AuctionItem auction) {
-
-        LinkedHashMap<String, String> params = new LinkedHashMap<>();
-        params.put("merchant_id", merchantId);
-        params.put("merchant_key", merchantKey);
-        params.put("return_url", returnUrl + "?auction_id=" + payment.getAuctionItem().getId().toString());
-        params.put("cancel_url", cancelUrl);
-        params.put("notify_url", notifyUrl);
-        params.put("name_first", buyer.getFullName().split(" ")[0]);
-        params.put("name_last", buyer.getFullName().contains(" ")
-                ? buyer.getFullName().substring(buyer.getFullName().indexOf(" ") + 1)
-                : "");
-        params.put("email_address", buyer.getEmail());
-        params.put("m_payment_id", payment.getId().toString());
-        params.put("amount", String.format(java.util.Locale.US, "%.2f", payment.getTotalAmount()));
-        params.put("item_name", auction.getTitle());
-        params.put("item_description", "Auction win payment");
-
-
-        String signature = generateSignature(params, passphrase);
-        params.put("signature", signature);
-
-        String baseUrl = sandbox
-                ? "https://sandbox.payfast.co.za/eng/process"
-                : "https://www.payfast.co.za/eng/process";
-
-        StringBuilder url = new StringBuilder(baseUrl + "?");
-        params.forEach((k, v) -> {
-            try {
-                url.append(URLEncoder.encode(k, "UTF-8"))
-                        .append("=")
-                        .append(URLEncoder.encode(v, "UTF-8"))
-                        .append("&");
-            } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        System.out.println("PAYFAST URL: " + url);
-        return url.substring(0, url.length() - 1);
+    @Transactional public Payment reconcileAttempt(UUID id,String action,String reference,String reason,String admin){
+        Payment p=payments.findById(id).orElseThrow(()->new IllegalArgumentException("Payment not found."));lock(p.getAuctionItem().getId());entityManager.refresh(p);
+        if(reference==null || reference.isBlank() || reference.length()>300 || reason==null || reason.isBlank() || reason.length()>2000)throw new IllegalArgumentException("Record the external provider reconciliation reference and investigation result.");
+        if("FAILED".equals(action) && p.getStatus()==PaymentStatus.PENDING){
+            change(p,PaymentStatus.FAILED,admin,"Provider reconciliation confirms this attempt cannot complete: "+reference+". "+reason);
+        }else if("REFUND_REQUESTED".equals(action) && p.getStatus()==PaymentStatus.REVIEW_REQUIRED){
+            change(p,PaymentStatus.REFUND_REQUESTED,admin,"Refund approved after reconciliation: "+reference+". "+reason);
+        }else throw new IllegalArgumentException("Only an unresolved pending attempt can be confirmed failed, or a reviewed payment approved for refund.");
+        return p;
     }
-
-    // Generate MD5 signature for PayFast
-    private String generateSignature(LinkedHashMap<String, String> params, String passphrase) {
-        StringBuilder sb = new StringBuilder();
-        params.forEach((k, v) -> {
-            if (!k.equals("signature")) {
-                try {
-                    sb.append(k).append("=")
-                            .append(URLEncoder.encode(v, "UTF-8"))
-                            .append("&");
-                } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        });
-
-        String str = sb.substring(0, sb.length() - 1);
-        if (passphrase != null && !passphrase.isEmpty()) {
-            str += "&passphrase=" + passphrase;
-        }
-
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] hash = md.digest(str.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    // Handle PayFast ITN webhook — called by PayFast after payment
-    public void handleItn(Map<String, String> itnData) {
-        System.out.println("ITN RECEIVED: " + itnData);
-
-        String mPaymentId = itnData.get("m_payment_id");
-        String paymentStatus = itnData.get("payment_status");
-        String pfPaymentId = itnData.get("pf_payment_id");
-
-        System.out.println("m_payment_id: " + mPaymentId);
-        System.out.println("payment_status: " + paymentStatus);
-
-        if (mPaymentId == null || mPaymentId.isEmpty()) {
-            System.out.println("ITN ERROR: m_payment_id is null or empty");
-            return;
-        }
-
-        try {
-            Payment payment = paymentRepository.findById(UUID.fromString(mPaymentId))
-                    .orElseThrow(() -> new RuntimeException("Payment not found: " + mPaymentId));
-
-            if ("COMPLETE".equals(paymentStatus)) {
-                payment.setStatus(PaymentStatus.HELD);
-                payment.setPayfastPaymentId(pfPaymentId);
-                payment.setPaidAt(LocalDateTime.now());
-                paymentRepository.save(payment);
-
-                // Transition the Order to PREPARATION
-                try {
-                    Order order = orderService.getByAuctionId(
-                            payment.getAuctionItem().getId()
-                    );
-                    orderService.transitionStatus(
-                            order.getId(),
-                            OrderStatus.PREPARATION,
-                            "system",
-                            "Payment confirmed by PayFast"
-                    );
-                } catch (Exception e) {
-                    System.out.println("Order transition failed: " + e.getMessage());
-                }
-
-                // Send emails
-                emailService.sendPaymentConfirmedEmail(
-                        payment.getBuyer().getEmail(),
-                        payment.getAuctionItem().getTitle(),
-                        payment.getTotalAmount()
-                );
-                emailService.sendSellerPaymentReceivedEmail(
-                        payment.getSeller().getEmail(),
-                        payment.getAuctionItem().getTitle(),
-                        payment.getSellerAmount()
-                );
-            }else {
-                payment.setStatus(PaymentStatus.FAILED);
-                System.out.println("Payment FAILED for: " + mPaymentId);
-            }
-
-            paymentRepository.save(payment);
-        } catch (Exception e) {
-            System.out.println("ITN EXCEPTION: " + e.getMessage());
-        }
-    }
-
-    // Called by scheduleRelease — not exposed to admin anymore
-    public Payment releasePayment(UUID auctionId) {
-        Payment payment = paymentRepository.findByAuctionItemId(auctionId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
-
-        if (payment.getStatus() != PaymentStatus.HELD) {
-            throw new RuntimeException("Payment is not in escrow.");
-        }
-
-        payment.setStatus(PaymentStatus.RELEASED);
-        payment.setReleasedAt(LocalDateTime.now());
-        return paymentRepository.save(payment);
-    }
-
-
-    // Buyer cancels only allowed before PICKED_UP
-    public Payment cancelPayment(UUID auctionId, String buyerEmail) {
-        Payment payment = paymentRepository.findByAuctionItemId(auctionId)
-                .orElseThrow(() -> new RuntimeException("Payment not found"));
-
-        if (!payment.getBuyer().getEmail().equals(buyerEmail)) {
-            throw new RuntimeException("You are not the buyer for this payment.");
-        }
-
-        if (payment.getStatus() != PaymentStatus.HELD) {
-            throw new RuntimeException("Only held payments can be cancelled.");
-        }
-
-        // Check delivery status, cannot cancel after pickup
-        deliveryRepository.findByAuctionItemId(auctionId).ifPresent(delivery -> {
-            if (delivery.getStatus() == DeliveryStatus.PICKED_UP ||
-                    delivery.getStatus() == DeliveryStatus.IN_TRANSIT ||
-                    delivery.getStatus() == DeliveryStatus.DELIVERED) {
-                throw new RuntimeException("Cannot cancel after item has been picked up.");
-            }
-        });
-
-        payment.setStatus(PaymentStatus.REFUNDED);
-        return paymentRepository.save(payment);
-    }
-
-    public List<Payment> getPaymentsForBuyer(String email) {
-        User buyer = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return paymentRepository.findByBuyerId(buyer.getId());
-    }
-
-    public List<Payment> getPaymentsForSeller(String email) {
-        User seller = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return paymentRepository.findBySellerId(seller.getId());
-    }
-
-    public Payment getPaymentByAuctionId(UUID auctionId) {
-        return paymentRepository.findByAuctionItemId(auctionId)
-                .orElseThrow(() -> new RuntimeException("Payment not found for this auction"));
-    }
-
-    public List<Payment> getAllPayments() {
-        return paymentRepository.findAll();
-    }
-
-    public PaymentResponse mapToResponse(Payment payment) {
-        return new PaymentResponse(
-                payment.getId(),
-                payment.getAuctionItem().getId(),
-                payment.getAuctionItem().getTitle(),
-                payment.getBuyer().getEmail(),
-                payment.getSeller().getEmail(),
-                payment.getTotalAmount(),
-                payment.getCommissionAmount(),
-                payment.getSellerAmount(),
-                payment.getStatus(),
-                payment.getCreatedAt(),
-                payment.getPaidAt(),
-                payment.getReleasedAt()
-        );
-    }
+    public void change(Payment p,PaymentStatus status,String actor,String reason){PaymentStatus from=p.getStatus();if(from==status)return;p.setStatus(status);payments.save(p);events.save(new PaymentEvent(p,from,status,actor,reason));}
+    public List<Payment> getPaymentsForBuyer(String email){return payments.findByBuyerId(users.findByEmail(email).orElseThrow().getId());}
+    public List<Payment> getPaymentsForSeller(String email){return payments.findBySellerId(users.findByEmail(email).orElseThrow().getId());}
+    public Payment getPaymentByAuctionId(UUID id,String buyer){Order o=orders.getByAuctionId(id);if(!o.getBuyer().getEmail().equals(buyer))throw new SecurityException("This payment belongs to another buyer.");return payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId()).orElseThrow(()->new IllegalArgumentException("Payment not found."));}
+    public List<Payment> getAllPayments(){return payments.findAll();}
+    public PaymentResponse mapToResponse(Payment p){PaymentResponse r=new PaymentResponse(p.getId(),p.getAuctionItem().getId(),p.getAuctionItem().getTitle(),p.getBuyer().getEmail(),p.getSeller().getEmail(),p.getTotalAmount(),p.getCommissionAmount(),p.getSellerAmount(),p.getStatus(),p.getCreatedAt(),p.getPaidAt(),p.getReleasedAt());r.setOrderId(p.getOrder()==null?null:p.getOrder().getId());r.setCreatedAt(p.getCreatedAt());r.setRefundReference(p.getRefundReference());r.setSettlementReference(p.getSettlementReference());return r;}
+    private AuctionItem lock(UUID id){return auctions.findByIdForUpdate(id).orElseThrow(()->new IllegalArgumentException("Auction not found."));}
 }

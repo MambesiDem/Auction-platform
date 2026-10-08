@@ -16,18 +16,18 @@ import java.util.stream.Collectors;
 public class WatchlistController {
 
     private final WatchlistService watchlistService;
+    private final com.mambesi.action.auction.AuctionResponseMapper mapper;
 
-    public WatchlistController(WatchlistService watchlistService) {
+    public WatchlistController(WatchlistService watchlistService, com.mambesi.action.auction.AuctionResponseMapper mapper) {
         this.watchlistService = watchlistService;
+        this.mapper = mapper;
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping
     public List<AuctionResponse> getWatchlist() {
         String email = getEmail();
-        return watchlistService.getWatchlist(email)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapper.map(watchlistService.getWatchlist(email), (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal());
     }
 
     @PostMapping("/{auctionId}")
@@ -42,6 +42,7 @@ public class WatchlistController {
         return ResponseEntity.ok().build();
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly=true)
     @GetMapping("/{auctionId}/check")
     public ResponseEntity<Boolean> check(@PathVariable UUID auctionId) {
         return ResponseEntity.ok(watchlistService.isWatchlisted(auctionId, getEmail()));
@@ -52,20 +53,4 @@ public class WatchlistController {
         return ((User) auth.getPrincipal()).getEmail();
     }
 
-    private AuctionResponse mapToResponse(AuctionItem item) {
-        return new AuctionResponse(
-                item.getId(), item.getTitle(), item.getDescription(),
-                item.getStartingPrice(),
-                item.getCurrentPrice(), item.isActive(),
-                item.getStartTime(), item.getEndTime(),
-                item.getOwner() != null ? item.getOwner().getEmail() : null,
-                item.getWinner() != null ? item.getWinner().getEmail() : null,
-                item.getPaymentDeadline(), item.getImageUrl(),
-                item.getBidIncrement(),
-                item.getExtensionThresholdMinutes(),
-                item.getExtensionDurationMinutes(),
-                item.getReservePrice() <= 0 ||
-                        item.getCurrentPrice() >= item.getReservePrice()
-        );
-    }
 }

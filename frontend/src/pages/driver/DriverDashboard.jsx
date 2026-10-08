@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useAuctionSync } from '../../utils/auctionLifecycle';
+import { useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
 import Navbar from '../../components/Navbar';
@@ -34,9 +35,7 @@ export default function DriverDashboard() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useAuctionSync(fetchData);
 
     const handleAccept = async (deliveryId) => {
         try {
@@ -54,9 +53,14 @@ export default function DriverDashboard() {
         if (!newStatus) return;
         try {
             setUpdatingId(deliveryId);
-            await axiosInstance.put(
-                `/api/deliveries/${deliveryId}/status?status=${newStatus}`
-            );
+            let code;
+            if (newStatus === 'PICKED_UP' || newStatus === 'DELIVERED') {
+                code = window.prompt(newStatus === 'PICKED_UP' ? 'Enter the seller’s collection code at the physical parcel handover.' : 'Enter the buyer’s delivery code only after handing over the parcel.');
+                if (!code?.trim()) return;
+            }
+            const evidence = window.prompt('Record package condition, handover details or a photo reference. For in-transit status, record the departure update.');
+            if (!evidence?.trim()) return;
+            await axiosInstance.put(`/api/deliveries/${deliveryId}/status`, null, { params: { status:newStatus, code, evidence } });
             fetchData();
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to update status.');
@@ -93,13 +97,7 @@ export default function DriverDashboard() {
     };
 
     // Only show status options that move forward
-    const getAvailableStatuses = (currentStatus) => {
-        const order = ['ACCEPTED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED'];
-        const currentIndex = order.indexOf(currentStatus);
-        return STATUS_OPTIONS.filter(opt =>
-            order.indexOf(opt.value) > currentIndex
-        );
-    };
+    const getAvailableStatuses = current => STATUS_OPTIONS.filter(opt => opt.value === ({ ACCEPTED:'PICKED_UP', PICKED_UP:'IN_TRANSIT', IN_TRANSIT:'DELIVERED' }[current]));
 
     if (loading) {
         return (

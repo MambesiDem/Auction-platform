@@ -42,7 +42,7 @@ public class User {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = com.mambesi.action.common.AppTime.now();
     }
 
     public void setId(UUID id) {

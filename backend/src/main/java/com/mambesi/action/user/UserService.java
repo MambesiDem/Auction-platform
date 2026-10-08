@@ -25,6 +25,9 @@ public class UserService {
     }
 
     public User registerUser(User user) {
+        if (user.getRole() == null || user.getRole() == Role.ADMIN) throw new IllegalArgumentException("Choose buyer, seller or driver. Admin accounts cannot be registered publicly.");
+        user.setEmail(user.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+        if (userRepository.existsByEmail(user.getEmail())) throw new IllegalArgumentException("Email already in use.");
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         return userRepository.save(user);
     }
@@ -38,7 +41,7 @@ public class UserService {
     }
 
     public LoginResponse login(String email, String rawPassword) {
-        User existingUser = findByEmail(email);
+        User existingUser = findByEmail(email.trim().toLowerCase(java.util.Locale.ROOT));
 
         if (existingUser != null && passwordEncoder.matches(rawPassword, existingUser.getPassword())) {
             String token = jwtService.generateToken(existingUser.getEmail());
@@ -65,12 +68,14 @@ public class UserService {
     public UserResponse setBanStatus(UUID id, boolean banned) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        if (user.getRole() == Role.ADMIN) throw new IllegalArgumentException("Administrator suspension requires a separate account-security process.");
         user.setBanned(banned);
         User saved = userRepository.save(user);
         return new UserResponse(saved.getId(), saved.getFullName(), saved.getEmail(), saved.getRole(), saved.isBanned());
     }
 
     public UserResponse createAdmin(String fullName, String email, String password) {
+        email = email.trim().toLowerCase(java.util.Locale.ROOT);
         System.out.println("Creating admin: " + email);
 
         if (userRepository.existsByEmail(email)) {

@@ -2,6 +2,9 @@ package com.mambesi.action.bid;
 
 
 public class BidMessage {
+    private boolean reserveMet;
+    public boolean isReserveMet(){return reserveMet;}
+    public void setReserveMet(boolean value){reserveMet=value;}
     private String auctionId;
     private String bidderEmail;
     private double amount;

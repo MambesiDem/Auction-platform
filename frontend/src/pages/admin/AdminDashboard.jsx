@@ -1,3 +1,5 @@
+import AdminOperations from '../../components/AdminOperations';
+import { getAllPages, paymentLabel } from '../../api/transactions';
 import { useEffect, useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import Navbar from '../../components/Navbar';
@@ -22,7 +24,7 @@ export default function AdminDashboard() {
         try {
             const [usersRes, auctionsRes, deliveriesRes, paymentsRes] = await Promise.all([
                 axiosInstance.get('/api/users'),
-                axiosInstance.get('/api/auctions'),
+                getAllPages('/api/auctions'),
                 axiosInstance.get('/api/deliveries'),
                 axiosInstance.get('/api/payments'),
             ]);
@@ -436,14 +438,13 @@ export default function AdminDashboard() {
                                                     p.status === 'FAILED'   ? styles.statusBanned   :
                                                     styles.statusPending
                                                 }`}>
-                                                    {p.status === 'HELD' ? 'In escrow' :
-                                                    p.status.charAt(0) + p.status.slice(1).toLowerCase()}
+                                                    {paymentLabel(p.status)}
                                                 </span>
                                             </td>
                                             <td>
                                                 {p.status === 'HELD' && (
                                                     <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                                                        Auto-releases on delivery
+                                                        Settlement review follows confirmed delivery
                                                     </span>
                                                 )}
                                                 {p.status === 'PENDING' && (
@@ -469,6 +470,7 @@ export default function AdminDashboard() {
                         </div>
                     )}
                 </div>
+                <AdminOperations payments={payments} deliveries={deliveries} refresh={fetchData} />
             </div>
         </div>
     );

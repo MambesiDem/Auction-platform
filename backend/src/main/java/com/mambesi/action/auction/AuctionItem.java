@@ -16,6 +16,12 @@ public class AuctionItem {
 
     @Version
     private Long version;
+    @Column private Double commissionRate;
+    @Column private Boolean offerWorkflowFinished = false;
+    public boolean isOfferWorkflowFinished(){return Boolean.TRUE.equals(offerWorkflowFinished);}
+    public void setOfferWorkflowFinished(boolean b){offerWorkflowFinished=b;}
+    public Double getCommissionRate() { return commissionRate; }
+    public void setCommissionRate(Double value) { commissionRate = value; }
 
     @Column(nullable = false)
     private String title;
@@ -23,14 +29,14 @@ public class AuctionItem {
     @Column
     private LocalDateTime paymentDeadline;
 
-    @Column(nullable = false)
+    @Column(nullable = false,length=10000)
     private String description;
 
-    @Column(nullable = false)
-    private double startingPrice;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal startingPrice;
 
-    @Column(nullable = false)
-    private double currentPrice;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal currentPrice;
 
     @Column(nullable = false)
     private LocalDateTime startTime;
@@ -49,7 +55,7 @@ public class AuctionItem {
     @JoinColumn(name = "winner_id")
     private User winner;
 
-    @Column
+    @Column(length=2000)
     private String imageUrl;
 
     @Column(nullable = false)
@@ -58,11 +64,11 @@ public class AuctionItem {
     @Column(nullable = false)
     private int extensionDurationMinutes = 3;
 
-    @Column(nullable = false)
-    private double bidIncrement = 5.0;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal bidIncrement = java.math.BigDecimal.valueOf(5).setScale(2);
 
     @Column
-    private Double reservePrice;
+    private java.math.BigDecimal reservePrice;
 
     @PrePersist
     protected void onCreate() {
@@ -77,8 +83,8 @@ public class AuctionItem {
         this.id = id;
         this.title = title;
         this.description = description;
-        this.startingPrice = startingPrice;
-        this.currentPrice = currentPrice;
+        this.startingPrice = com.mambesi.action.common.Money.value(startingPrice);
+        this.currentPrice = com.mambesi.action.common.Money.value(currentPrice);
         this.startTime = startTime;
         this.endTime = endTime;
         this.isActive = isActive;
@@ -99,11 +105,11 @@ public class AuctionItem {
     }
 
     public void setStartingPrice(double startingPrice) {
-        this.startingPrice = startingPrice;
+        this.startingPrice = com.mambesi.action.common.Money.value(startingPrice);
     }
 
     public void setCurrentPrice(double currentPrice) {
-        this.currentPrice = currentPrice;
+        this.currentPrice = com.mambesi.action.common.Money.value(currentPrice);
     }
 
     public void setStartTime(LocalDateTime startTime) {
@@ -135,11 +141,11 @@ public class AuctionItem {
     }
 
     public double getStartingPrice() {
-        return startingPrice;
+        return startingPrice == null ? 0.0 : startingPrice.doubleValue();
     }
 
     public double getCurrentPrice() {
-        return currentPrice;
+        return currentPrice == null ? 0.0 : currentPrice.doubleValue();
     }
 
     public LocalDateTime getStartTime() {
@@ -175,14 +181,14 @@ public class AuctionItem {
     public void setExtensionThresholdMinutes(int m) { this.extensionThresholdMinutes = m; }
     public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
     public void setExtensionDurationMinutes(int m) { this.extensionDurationMinutes = m; }
-    public double getBidIncrement() { return bidIncrement; }
-    public void setBidIncrement(double bidIncrement) { this.bidIncrement = bidIncrement; }
+    public double getBidIncrement() { return bidIncrement == null ? 0.0 : bidIncrement.doubleValue(); }
+    public void setBidIncrement(double bidIncrement) { this.bidIncrement = com.mambesi.action.common.Money.value(bidIncrement); }
 
     public Double getReservePrice() {
-        return reservePrice;
+        return reservePrice == null ? null : reservePrice.doubleValue();
     }
 
     public void setReservePrice(Double reservedPrice) {
-        this.reservePrice = reservedPrice;
+        this.reservePrice = reservedPrice == null || reservedPrice == 0 ? null : com.mambesi.action.common.Money.value(reservedPrice);
     }
 }

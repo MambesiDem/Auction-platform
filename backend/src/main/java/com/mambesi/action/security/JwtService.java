@@ -18,7 +18,7 @@ public class JwtService {
     private long expirationMs;
 
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes());
+        return Keys.hmacShaKeyFor(secretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public String generateToken(String email) {

@@ -1,3 +1,7 @@
+import { latestPayment } from '../../utils/auctionLifecycle';
+import OrderTools from '../../components/OrderTools';
+import { useAuctionSync } from '../../utils/auctionLifecycle';
+import { getAllPages } from '../../api/transactions';
 import { useEffect, useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +13,7 @@ import styles from './SellerOrders.module.css';
 const TABS = ['All', 'Awaiting Delivery', 'In Progress', 'Delivered', 'Cancelled'];
 
 export default function SellerOrders() {
+    const [orderRecords, setOrderRecords] = useState([]);
     const { user } = useAuth();
     const [deliveries, setDeliveries] = useState([]);
     const [payments, setPayments] = useState([]);
@@ -18,12 +23,14 @@ export default function SellerOrders() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [deliveriesRes, paymentsRes, auctionsRes] = await Promise.all([
+            const [deliveriesRes, paymentsRes, auctionsRes, recordsRes] = await Promise.all([
                 axiosInstance.get('/api/deliveries/my-sales'),
                 axiosInstance.get('/api/payments/my-earnings'),
-                axiosInstance.get('/api/auctions'),
+                getAllPages('/api/auctions/my-listings'),
+                axiosInstance.get('/api/orders/mine'),
             ]);
             setDeliveries(deliveriesRes.data);
+            setOrderRecords(recordsRes.data);
             setPayments(paymentsRes.data);
             const mine = auctionsRes.data.filter(a => a.ownerEmail === user?.email);
             setAuctions(mine);
@@ -34,9 +41,7 @@ export default function SellerOrders() {
         }
     }, [user]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useAuctionSync(fetchData);
 
     // Poll every 30 seconds
     useEffect(() => {
@@ -46,7 +51,9 @@ export default function SellerOrders() {
 
     const handleCreateDelivery = async (auctionId) => {
         try {
-            await axiosInstance.post('/api/deliveries', { auctionId });
+            const preparationEvidence = window.prompt('Before collection, confirm that the item matches the listing. Record its condition, packaging and photo reference:');
+            if (!preparationEvidence?.trim()) return;
+            await axiosInstance.post('/api/deliveries', { auctionId, preparationEvidence });
             fetchData();
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to create delivery.');
@@ -120,6 +127,13 @@ export default function SellerOrders() {
                 <TopBar />
 
                 <div className={styles.content}>
+                    <details style={{ marginBottom:16 }}><summary>Order records, handover codes and buyer cases</summary>
+                        {orderRecords.map(o => <div key={o.id} style={{padding:12,borderBottom:'1px solid #e5e7eb'}}>
+                            <strong>{o.title}</strong> — {o.status.replaceAll('_',' ')}
+                            <OrderTools auction={{id:o.auctionId,orderId:o.id,orderStatus:o.status}} payment={payments.filter(p=>p.orderId===o.id).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0]}
+                                delivery={deliveries.find(d=>d.auctionId===o.auctionId)} refresh={fetchData} />
+                        </div>)}
+                    </details>
                     <div className={styles.pageHeader}>
                         <div>
                             <h1 className={styles.pageTitle}>My Orders</h1>
@@ -139,9 +153,9 @@ export default function SellerOrders() {
                                 </h3>
                             </div>
                             {closedWithoutDelivery.map(auction => {
-                                const payment = payments.find(p => p.auctionId === auction.id);
+                                const payment = latestPayment(payments, auction);
                                 const paymentReady = payment &&
-                                    (payment.status === 'HELD' || payment.status === 'RELEASED');
+                                    payment.status === 'HELD' && ['PREPARATION','COLLECTION_PENDING'].includes(auction.orderStatus);
                                 return (
                                     <div key={auction.id} className={styles.actionRow}>
                                         {auction.imageUrl ? (
@@ -234,8 +248,8 @@ export default function SellerOrders() {
                                                 {payment && (
                                                     <div className={styles.paymentInfo}>
                                                         <span className={styles.paymentLabel}>
-                                                            {payment.status === 'HELD' ? '🔒 In escrow' :
-                                                             payment.status === 'RELEASED' ? '✅ Paid out' :
+                                                            {payment.status === 'HELD' ? '🔒 Payment confirmed' :
+                                                             payment.status === 'RELEASED' ? '✅ Payout confirmed' :
                                                              payment.status === 'REFUNDED' ? '↩️ Refunded' :
                                                              '⏳ Awaiting payment'}
                                                         </span>

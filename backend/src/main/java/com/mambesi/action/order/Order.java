@@ -13,6 +13,13 @@ public class Order {
     @Id
     @GeneratedValue
     private UUID id;
+    @Version private Long version;
+    @Column(length = 1000) private String listingTitle;
+    @Column(length = 10000) private String listingDescription;
+    public String getListingTitle() { return listingTitle; }
+    public void setListingTitle(String value) { listingTitle = value; }
+    public String getListingDescription() { return listingDescription; }
+    public void setListingDescription(String value) { listingDescription = value; }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "auction_id", nullable = false)
@@ -26,12 +33,12 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status;
 
-    // The commission rate and bid increment locked at order creation
+    // The commission rate and item price locked at order creation
     @Column(nullable = false)
     private double commissionRate;
 
-    @Column(nullable = false)
-    private double agreedPrice;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private java.math.BigDecimal agreedPrice;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -46,19 +53,19 @@ public class Order {
     @Column
     private String lastActorEmail;
 
-    @Column
+    @Column(length=6000)
     private String lastReason;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        this.status = OrderStatus.AWAITING_PAYMENT;
+        this.createdAt = com.mambesi.action.common.AppTime.now();
+        this.updatedAt = com.mambesi.action.common.AppTime.now();
+        if (this.status == null) this.status = OrderStatus.AWAITING_PAYMENT;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = com.mambesi.action.common.AppTime.now();
     }
 
     public Order() {}
@@ -73,8 +80,8 @@ public class Order {
     public void setStatus(OrderStatus status) { this.status = status; }
     public double getCommissionRate() { return commissionRate; }
     public void setCommissionRate(double commissionRate) { this.commissionRate = commissionRate; }
-    public double getAgreedPrice() { return agreedPrice; }
-    public void setAgreedPrice(double agreedPrice) { this.agreedPrice = agreedPrice; }
+    public double getAgreedPrice() { return agreedPrice == null ? 0.0 : agreedPrice.doubleValue(); }
+    public void setAgreedPrice(double agreedPrice) { this.agreedPrice = com.mambesi.action.common.Money.value(agreedPrice); }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getPaymentDeadline() { return paymentDeadline; }
     public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }

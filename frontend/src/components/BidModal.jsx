@@ -6,7 +6,11 @@ export default function BidModal({ auction, onClose, onBidPlaced }) {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const minBid = (auction.currentPrice + Math.max(5, auction.bidIncrement || 5)).toFixed(2);
+    // Starting price if no bids yet, otherwise current + increment
+    const hasExistingBids = auction.currentPrice > auction.startingPrice;
+    const minBid = hasExistingBids
+        ? (auction.currentPrice + Math.max(5, auction.bidIncrement || 5)).toFixed(2)
+        : parseFloat(auction.startingPrice || auction.currentPrice).toFixed(2);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

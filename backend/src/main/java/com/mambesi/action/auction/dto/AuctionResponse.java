@@ -19,16 +19,20 @@ public class AuctionResponse {
     private double bidIncrement;
     private int extensionThresholdMinutes;
     private int extensionDurationMinutes;
+    private double startingPrice;
+    private boolean reserveMet;
 
     public AuctionResponse(UUID id, String title, String description,
+                           double startingPrice,
                            double currentPrice, boolean active,
                            LocalDateTime startTime, LocalDateTime endTime,
                            String ownerEmail, String winnerEmail, LocalDateTime paymentDeadline,
                            String imageUrl, double bidIncrement,int extensionThresholdMinutes,
-                            int extensionDurationMinutes) {
+                            int extensionDurationMinutes, boolean reserveMet) {
         this.id = id;
         this.title = title;
         this.description = description;
+        this.startingPrice = startingPrice;
         this.currentPrice = currentPrice;
         this.active = active;
         this.startTime = startTime;
@@ -40,6 +44,7 @@ public class AuctionResponse {
         this.bidIncrement = bidIncrement;
         this.extensionThresholdMinutes = extensionThresholdMinutes;
         this.extensionDurationMinutes = extensionDurationMinutes;
+        this.reserveMet = reserveMet;
     }
 
     public UUID getId() {
@@ -83,4 +88,6 @@ public class AuctionResponse {
     public double getBidIncrement() { return bidIncrement; }
     public int getExtensionThresholdMinutes() { return extensionThresholdMinutes; }
     public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
+    public double getStartingPrice() { return startingPrice; }
+    public boolean isReserveMet() { return reserveMet; }
 }

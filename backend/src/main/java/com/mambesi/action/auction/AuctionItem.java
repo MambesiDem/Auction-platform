@@ -62,7 +62,7 @@ public class AuctionItem {
     private double bidIncrement = 5.0;
 
     @Column
-    private Double reservedPrice;
+    private Double reservePrice;
 
     @PrePersist
     protected void onCreate() {
@@ -178,7 +178,11 @@ public class AuctionItem {
     public double getBidIncrement() { return bidIncrement; }
     public void setBidIncrement(double bidIncrement) { this.bidIncrement = bidIncrement; }
 
-    public double getReservePrice() {
-        return reservedPrice;
+    public Double getReservePrice() {
+        return reservePrice;
+    }
+
+    public void setReservePrice(Double reservedPrice) {
+        this.reservePrice = reservedPrice;
     }
 }

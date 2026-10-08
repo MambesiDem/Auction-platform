@@ -83,10 +83,18 @@ public class BidService {
         }
 
         // Minimum bid increment — R5 floor
-        double minimumBid = auction.getCurrentPrice() + Math.max(5.0, auction.getBidIncrement());
+        double minimumBid;
+        if (existingBids.isEmpty()) {
+            minimumBid = auction.getStartingPrice();
+        } else {
+            minimumBid = auction.getCurrentPrice() + Math.max(5.0, auction.getBidIncrement());
+        }
+
         if (amount < minimumBid) {
             throw new RuntimeException(
-                    String.format("Minimum bid is R%.2f (current price + R%.2f increment).",
+                    existingBids.isEmpty()
+                            ? String.format("Minimum bid is R%.2f (starting price).", minimumBid)
+                            : String.format("Minimum bid is R%.2f (current price + R%.2f increment).",
                             minimumBid, Math.max(5.0, auction.getBidIncrement()))
             );
         }

@@ -41,6 +41,7 @@ public class AuctionController {
         item.setStartTime(request.getStartTime());
         item.setEndTime(request.getEndTime());
         item.setImageUrl(request.getImageUrl());
+        item.setReservePrice(request.getReservePrice());
 
         // Save policy at creation — these never change for this auction
         item.setBidIncrement(request.getBidIncrement());
@@ -95,6 +96,7 @@ public class AuctionController {
                 item.getId(),
                 item.getTitle(),
                 item.getDescription(),
+                item.getStartingPrice(),
                 item.getCurrentPrice(),
                 item.isActive(),
                 item.getStartTime(),
@@ -105,7 +107,9 @@ public class AuctionController {
                 item.getImageUrl(),
                 item.getBidIncrement(),
                 item.getExtensionThresholdMinutes(),
-                item.getExtensionDurationMinutes()
+                item.getExtensionDurationMinutes(),
+        item.getReservePrice() <= 0 ||
+                item.getCurrentPrice() >= item.getReservePrice()
         );
     }
     @PutMapping("/{id}/close")

@@ -15,6 +15,7 @@ const EMPTY_FORM = {
     endTime: '',
     imageFile: null,
     imagePreview: null,
+    reservePrice: '',
 };
 
 const TABS = ['All', 'Active', 'Closed', 'No Winner'];
@@ -119,6 +120,7 @@ export default function SellerListings() {
                 startTime: startTime + ':00',
                 endTime: endTime + ':00',
                 imageUrl,
+                reservePrice: form.reservePrice ? parseFloat(form.reservePrice) : 0,
             });
             setForm(EMPTY_FORM);
             setFormSuccess('Auction created successfully!');
@@ -269,6 +271,23 @@ export default function SellerListings() {
                                             onChange={handleChange}
                                             min="1"
                                         />
+                                    </div>
+                                    <div className={styles.field}>
+                                        <label className={styles.label}>
+                                            Reserve price (R) — optional
+                                        </label>
+                                        <input
+                                            className={styles.input}
+                                            type="number"
+                                            name="reservePrice"
+                                            placeholder="Leave blank for no reserve"
+                                            value={form.reservePrice}
+                                            onChange={handleChange}
+                                            min="0"
+                                        />
+                                        <span style={{ fontSize: '11px', color: '#6B7280', marginTop: '3px' }}>
+                                            If set, the auction only completes if bidding reaches this amount.
+                                        </span>
                                     </div>
                                     <div className={styles.field}>
                                         <label className={styles.label}>Item image (optional)</label>

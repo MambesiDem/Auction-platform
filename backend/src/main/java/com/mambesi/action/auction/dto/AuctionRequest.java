@@ -25,6 +25,10 @@ public class AuctionRequest {
     private int extensionDurationMinutes = 3;
     private double bidIncrement = 5.0;
 
+    private double reservePrice = 0.0;
+
+    public double getReservePrice() { return reservePrice; }
+
     public int getExtensionThresholdMinutes() { return extensionThresholdMinutes; }
     public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
     public double getBidIncrement() { return bidIncrement; }

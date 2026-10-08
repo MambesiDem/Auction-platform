@@ -55,6 +55,7 @@ public class WatchlistController {
     private AuctionResponse mapToResponse(AuctionItem item) {
         return new AuctionResponse(
                 item.getId(), item.getTitle(), item.getDescription(),
+                item.getStartingPrice(),
                 item.getCurrentPrice(), item.isActive(),
                 item.getStartTime(), item.getEndTime(),
                 item.getOwner() != null ? item.getOwner().getEmail() : null,
@@ -62,7 +63,9 @@ public class WatchlistController {
                 item.getPaymentDeadline(), item.getImageUrl(),
                 item.getBidIncrement(),
                 item.getExtensionThresholdMinutes(),
-                item.getExtensionDurationMinutes()
+                item.getExtensionDurationMinutes(),
+                item.getReservePrice() <= 0 ||
+                        item.getCurrentPrice() >= item.getReservePrice()
         );
     }
 }

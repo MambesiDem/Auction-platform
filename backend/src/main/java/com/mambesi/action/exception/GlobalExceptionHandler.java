@@ -27,8 +27,25 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         if ("/api/payments/notify".equals(request.getRequestURI())) {
-            log.warn("Payfast ITN rejected: exceptionType={}",
-                    ex.getClass().getSimpleName());
+            Throwable cause = ex;
+
+            // Find the underlying parsing error without logging the payment payload.
+            for (int depth = 0;
+                 depth < 10 && cause.getCause() != null
+                         && cause.getCause() != cause;
+                 depth++) {
+                cause = cause.getCause();
+            }
+
+            log.warn(
+                    "Payfast ITN rejected: exceptionType={}, contentType={}, "
+                            + "contentLength={}, rootCauseType={}, rootCauseMessage={}",
+                    ex.getClass().getSimpleName(),
+                    request.getContentType(),
+                    request.getContentLengthLong(),
+                    cause.getClass().getSimpleName(),
+                    cause.getMessage()
+            );
         }
 
         Map<String, Object> error = new HashMap<>();

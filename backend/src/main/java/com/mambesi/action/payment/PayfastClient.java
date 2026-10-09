@@ -39,12 +39,15 @@ public class PayfastClient {
         String[] names=p.getBuyer().getFullName().trim().split("\s+",2);
         fields.put("name_first",names[0]);if(names.length>1)fields.put("name_last",names[1]);
         fields.put("email_address",p.getBuyer().getEmail());fields.put("m_payment_id",p.getId().toString());
-        fields.put("amount",Money.value(p.getTotalAmount()).toPlainString());fields.put("item_name",p.getOrder().getListingTitle().substring(0,Math.min(100,p.getOrder().getListingTitle().length())));
+        fields.put("amount",Money.value(p.getTotalAmount()).toPlainString());
+        fields.put("item_name",p.getOrder().getListingTitle().substring(0,Math.min(100,p.getOrder().getListingTitle().length())));
         fields.put("item_description","ConnSB order payment");String encoded=encode(fields,true);
         String signature=sign(encoded,passphrase);return host()+"/eng/process?"+encoded+"&signature="+signature;
     }
     public LinkedHashMap<String,String> parse(String body){
-        if(body==null || body.isBlank() || body.length()>20000)throw new IllegalArgumentException("Invalid payment notification.");
+        if(body==null || body.isBlank() || body.length()>20000)
+            throw new IllegalArgumentException("Invalid payment notification.");
+
         LinkedHashMap<String,String> result=new LinkedHashMap<>();
         for(String pair:body.split("&")){
             String[] kv=pair.split("=",2);if(kv.length!=2)throw new IllegalArgumentException("Malformed payment notification.");
@@ -68,7 +71,31 @@ public class PayfastClient {
         try {
             for(String domain:sandbox?List.of("sandbox.payfast.co.za"):List.of("www.payfast.co.za","w1w.payfast.co.za","w2w.payfast.co.za"))
                 for(InetAddress ip:InetAddress.getAllByName(domain))valid.add(ip.getHostAddress());
-            if(!valid.contains(sender))throw new SecurityException("Notification source is not a verified PayFast address.");
+
+            if (!valid.contains(sender)) {
+                // Log addresses only—not payment details, signatures or credentials.
+                String safeForwardedFor = forwardedFor == null
+                        ? "(absent)"
+                        : forwardedFor.replaceAll("[^0-9a-fA-F:., ]", "?");
+
+                if (safeForwardedFor.length() > 500) {
+                    safeForwardedFor = safeForwardedFor.substring(0, 500);
+                }
+
+                org.slf4j.LoggerFactory.getLogger(PayfastClient.class).warn(
+                        "Payfast ITN source mismatch: remoteAddress={}, "
+                                + "forwardedFor={}, selectedSender={}, allowedAddresses={}",
+                        remoteAddress,
+                        safeForwardedFor,
+                        sender,
+                        valid
+                );
+
+                throw new SecurityException(
+                        "Notification source is not a verified PayFast address."
+                );
+            }
+
             HttpRequest request=HttpRequest.newBuilder(URI.create(host()+"/eng/query/validate")).timeout(Duration.ofSeconds(12))
                 .header("Content-Type","application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString(encoded)).build();
             HttpResponse<String> response=http.send(request,HttpResponse.BodyHandlers.ofString());

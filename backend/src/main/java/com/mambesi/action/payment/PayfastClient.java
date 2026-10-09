@@ -62,10 +62,40 @@ public class PayfastClient {
         if(!merchantId.equals(fields.get("merchant_id")))throw new SecurityException("Incorrect payment merchant.");
         try { if(Money.value(expected).compareTo(new java.math.BigDecimal(fields.get("amount_gross")))!=0)throw new SecurityException("Payment amount does not match the order."); }
         catch(NumberFormatException|NullPointerException e){throw new IllegalArgumentException("Invalid notification amount.");}
-        String sender=remoteAddress;
-        Set<String> trusted=new HashSet<>();for(String ip:trustedProxies.split(","))if(!ip.isBlank())trusted.add(ip.trim());
-        if(trusted.contains(remoteAddress) && forwardedFor!=null){
-            String[] chain=forwardedFor.split(",");for(int i=chain.length-1;i>=0;i--){sender=chain[i].trim();if(!trusted.contains(sender))break;}
+        String sender = remoteAddress;
+
+        Set<String> trusted = new HashSet<>();
+        for (String entry : trustedProxies.split(",")) {
+            if (!entry.isBlank()) {
+                trusted.add(entry.trim());
+            }
+        }
+
+// Read forwarded addresses only when the immediate connection is trusted.
+        if (isTrustedProxy(remoteAddress, trusted)
+                && forwardedFor != null
+                && !forwardedFor.isBlank()) {
+
+            if (forwardedFor.length() > 2000) {
+                throw new SecurityException("Invalid forwarded address chain.");
+            }
+
+            String[] chain = forwardedFor.split(",", -1);
+
+            // Walk backwards and stop at the first address outside trusted proxies.
+            for (int i = chain.length - 1; i >= 0; i--) {
+                String candidate = chain[i].trim();
+
+                if (!isLiteralIpAddress(candidate)) {
+                    throw new SecurityException("Invalid forwarded address chain.");
+                }
+
+                sender = candidate;
+
+                if (!isTrustedProxy(candidate, trusted)) {
+                    break;
+                }
+            }
         }
         Set<String> valid=new HashSet<>();
         try {
@@ -118,6 +148,42 @@ public class PayfastClient {
             if(response.statusCode()!=200 || !"VALID".equals(response.body().trim()))throw new SecurityException("Provider did not validate the notification.");
         }catch(InterruptedException e){Thread.currentThread().interrupt();throw new IllegalStateException("Payment validation interrupted; retry required.",e);}
         catch(java.io.IOException e){throw new IllegalStateException("Payment provider validation unavailable; retry required.",e);}
+    }
+    private static boolean isLiteralIpAddress(String address) {
+        if (address == null || address.isBlank()) {
+            return false;
+        }
+
+        // Exclude hostnames and unexpected characters before IP matching.
+        return address.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}")
+                || (address.contains(":")
+                && address.matches("[0-9a-fA-F:]+"));
+    }
+
+    private static boolean isTrustedProxy(
+            String address,
+            Set<String> trustedAddressesOrRanges) {
+
+        if (!isLiteralIpAddress(address)) {
+            return false;
+        }
+
+        for (String entry : trustedAddressesOrRanges) {
+            var matcher =
+                    new org.springframework.security.web.util.matcher.IpAddressMatcher(
+                            entry
+                    );
+
+            try {
+                if (matcher.matches(address)) {
+                    return true;
+                }
+            } catch (IllegalArgumentException ex) {
+                return false;
+            }
+        }
+
+        return false;
     }
     private String host(){return sandbox?"https://sandbox.payfast.co.za":"https://www.payfast.co.za";}
     public static String encode(Map<String,String> fields,boolean omitBlank){

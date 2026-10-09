@@ -17,6 +17,88 @@ public class PaymentController {
     public ResponseEntity<String> notify(@RequestBody String raw,HttpServletRequest request){
         var validated=service.validateNotification(raw,request.getRemoteAddr(),request.getHeader("X-Forwarded-For"));service.applyNotification(validated);return ResponseEntity.ok("OK");
     }
+    // Accept multipart notifications, including Payfast sandbox ITN resends.
+    @PostMapping(
+            value = "/notify",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<String> notifyMultipart(HttpServletRequest request)
+            throws java.io.IOException, jakarta.servlet.ServletException {
+
+        if (request.getQueryString() != null
+                && !request.getQueryString().isBlank()) {
+            throw new IllegalArgumentException(
+                    "Notification query parameters are not allowed."
+            );
+        }
+
+        var parts = request.getParts();
+
+        if (parts.isEmpty() || parts.size() > 50) {
+            throw new IllegalArgumentException("Invalid payment notification.");
+        }
+
+        java.util.Set<String> names = new java.util.HashSet<>();
+        java.util.StringJoiner encoded = new java.util.StringJoiner("&");
+        int remainingBytes = 20000;
+
+        // Preserve received field order and empty values for signature verification.
+        for (var part : parts) {
+            String name = part.getName();
+
+            if (name == null || !name.matches("[A-Za-z0-9_]{1,100}")) {
+                throw new IllegalArgumentException(
+                        "Malformed payment notification."
+                );
+            }
+
+            if (!names.add(name)) {
+                throw new IllegalArgumentException(
+                        "Duplicate notification field."
+                );
+            }
+
+            byte[] bytes;
+
+            try (var input = part.getInputStream()) {
+                bytes = input.readNBytes(remainingBytes + 1);
+            }
+
+            if (bytes.length > remainingBytes) {
+                throw new IllegalArgumentException(
+                        "Invalid payment notification."
+                );
+            }
+
+            remainingBytes -= bytes.length;
+
+            String value = new String(
+                    bytes,
+                    java.nio.charset.StandardCharsets.UTF_8
+            );
+
+            encoded.add(
+                    java.net.URLEncoder.encode(
+                            name, java.nio.charset.StandardCharsets.UTF_8
+                    )
+                            + "="
+                            + java.net.URLEncoder.encode(
+                            value, java.nio.charset.StandardCharsets.UTF_8
+                    )
+            );
+        }
+
+        // Run the existing payment checks before changing any payment state.
+        var validated = service.validateNotification(
+                encoded.toString(),
+                request.getRemoteAddr(),
+                request.getHeader("X-Forwarded-For")
+        );
+
+        service.applyNotification(validated);
+
+        return ResponseEntity.ok("OK");
+    }
     @org.springframework.transaction.annotation.Transactional(noRollbackFor=com.mambesi.action.delivery.DeliveryService.InvalidCodeException.class)
     @PutMapping("/{id}/cancel") public PaymentResponse cancel(@PathVariable UUID id,Authentication auth){return service.mapToResponse(service.cancelPayment(id,user(auth).getEmail()));}
     @org.springframework.transaction.annotation.Transactional(readOnly=true)

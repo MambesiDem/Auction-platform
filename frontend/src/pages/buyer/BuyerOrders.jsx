@@ -182,7 +182,7 @@ export default function BuyerOrders() {
                     ) : (
                         <div className={styles.ordersList}>
                             {filtered.map(({ auction, payment, delivery }) => {
-                                const status = getOrderStatus({ payment, delivery });
+                                const status = getOrderStatus({ auction, payment, delivery });
                                 const paymentTimer = paymentTimers[auction.id];
                                 const paymentPending = !payment || ['PENDING', 'FAILED'].includes(payment.status);
                                 const canPay = canPayForAuction(auction, payment);

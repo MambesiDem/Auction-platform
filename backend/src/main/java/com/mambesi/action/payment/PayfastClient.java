@@ -69,8 +69,24 @@ public class PayfastClient {
         }
         Set<String> valid=new HashSet<>();
         try {
-            for(String domain:sandbox?List.of("sandbox.payfast.co.za"):List.of("www.payfast.co.za","w1w.payfast.co.za","w2w.payfast.co.za"))
-                for(InetAddress ip:InetAddress.getAllByName(domain))valid.add(ip.getHostAddress());
+            // Include Payfast's published network addresses in both environments.
+            List<String> sourceHosts = sandbox
+                    ? List.of(
+                    "ips.payfast.co.za",
+                    "sandbox.payfast.co.za"
+            )
+                    : List.of(
+                    "ips.payfast.co.za",
+                    "www.payfast.co.za",
+                    "w1w.payfast.co.za",
+                    "w2w.payfast.co.za"
+            );
+
+            for (String domain : sourceHosts) {
+                for (InetAddress ip : InetAddress.getAllByName(domain)) {
+                    valid.add(ip.getHostAddress());
+                }
+            }
 
             if (!valid.contains(sender)) {
                 // Log addresses only—not payment details, signatures or credentials.

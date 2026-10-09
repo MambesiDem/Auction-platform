@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -15,11 +17,19 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log =
+            LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     // Handles all general RuntimeExceptions (auction not found, invalid bid, etc.)
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(
             RuntimeException ex,
             HttpServletRequest request) {
+
+        if ("/api/payments/notify".equals(request.getRequestURI())) {
+            log.warn("Payfast ITN rejected: exceptionType={}",
+                    ex.getClass().getSimpleName());
+        }
 
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now().toString());
@@ -57,6 +67,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(
             IllegalArgumentException ex,
             HttpServletRequest request) {
+
+        if ("/api/payments/notify".equals(request.getRequestURI())) {
+            String message = ex.getMessage();
+
+            // Only log recognised diagnostic messages, never the payment payload.
+            boolean safeMessage = java.util.Set.of(
+                    "Invalid payment notification.",
+                    "Malformed payment notification.",
+                    "Duplicate notification field.",
+                    "Invalid payment reference.",
+                    "Payment attempt not found.",
+                    "Provider transaction reference is required.",
+                    "Unsupported payment notification status.",
+                    "Invalid notification amount."
+            ).contains(message == null ? "" : message);
+
+            log.warn("Payfast ITN rejected: exceptionType={}, reason={}",
+                    ex.getClass().getSimpleName(),
+                    safeMessage ? message : "Unclassified validation failure");
+        }
 
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now().toString());

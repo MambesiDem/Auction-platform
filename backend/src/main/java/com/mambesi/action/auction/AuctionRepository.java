@@ -18,8 +18,10 @@ public interface AuctionRepository extends JpaRepository<AuctionItem,UUID> {
     @EntityGraph(attributePaths={"owner","winner"})
     @Query("select a from AuctionItem a where a.isActive=true and a.endTime>:now order by a.endTime asc,a.id asc")
     List<AuctionItem> findOpenForPage(@Param("now")LocalDateTime now,Pageable page);
-    @EntityGraph(attributePaths={"owner","winner"}) List<AuctionItem> findByOwnerIdOrderByStartTimeDesc(UUID id,Pageable page);
-    @EntityGraph(attributePaths={"owner","winner"}) List<AuctionItem> findByWinnerIdOrderByEndTimeDesc(UUID id,Pageable page);
+    @EntityGraph(attributePaths={"owner","winner"})
+    List<AuctionItem> findByOwnerIdOrderByStartTimeDesc(UUID id,Pageable page);
+    @EntityGraph(attributePaths={"owner","winner"})
+    List<AuctionItem> findByWinnerIdOrderByEndTimeDesc(UUID id,Pageable page);
     @EntityGraph(attributePaths={"owner","winner"})
     @Query("select distinct b.auctionItem from Bid b where b.bidder.id=:userId and b.auctionItem.isActive=false and (b.auctionItem.winner is null or b.auctionItem.winner.id<>:userId) order by b.auctionItem.endTime desc")
     List<AuctionItem> findLostAuctionsByBidderId(@Param("userId")UUID id,Pageable page);

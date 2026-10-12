@@ -81,7 +81,9 @@ public class Order {
     public double getCommissionRate() { return commissionRate; }
     public void setCommissionRate(double commissionRate) { this.commissionRate = commissionRate; }
     public double getAgreedPrice() { return agreedPrice == null ? 0.0 : agreedPrice.doubleValue(); }
-    public void setAgreedPrice(double agreedPrice) { this.agreedPrice = com.mambesi.action.common.Money.value(agreedPrice); }
+    public void setAgreedPrice(double agreedPrice) {
+        this.agreedPrice = com.mambesi.action.common.Money.value(agreedPrice);
+    }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getPaymentDeadline() { return paymentDeadline; }
     public void setPaymentDeadline(LocalDateTime paymentDeadline) { this.paymentDeadline = paymentDeadline; }

@@ -142,8 +142,13 @@ public class DeliveryController {
                 delivery.getUpdatedAt()
         );
         String viewer = getAuthenticatedEmail();
-        if (viewer.equals(delivery.getSeller().getEmail()) && delivery.getStatus()==DeliveryStatus.ACCEPTED) response.setPickupCode(delivery.getPickupCode());
-        if (viewer.equals(delivery.getBuyer().getEmail()) && delivery.getStatus()==DeliveryStatus.IN_TRANSIT) response.setDeliveryCode(delivery.getDeliveryCode());
+        if (viewer.equals(delivery.getSeller().getEmail()) &&
+                delivery.getStatus()==DeliveryStatus.ACCEPTED)
+            response.setPickupCode(delivery.getPickupCode());
+        if (viewer.equals(delivery.getBuyer().getEmail()) &&
+                delivery.getStatus()==DeliveryStatus.IN_TRANSIT)
+            response.setDeliveryCode(delivery.getDeliveryCode());
+
         return response;
     }
 }

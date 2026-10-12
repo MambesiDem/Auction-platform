@@ -17,8 +17,11 @@ import java.util.*;
 public class SecurityConfig {
     private final JwtAuthFilter filter;
     @Value("${frontend.url:http://localhost:3000}") private String frontend;
+
     public SecurityConfig(JwtAuthFilter f){filter=f;}
+
     @Bean public PasswordEncoder passwordEncoder(){return new BCryptPasswordEncoder();}
+
     @Bean public SecurityFilterChain chain(HttpSecurity http)throws Exception{
         return http.cors(c->c.configurationSource(corsConfigurationSource())).csrf(c->c.disable())
                 .sessionManagement(s->s.sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
@@ -27,6 +30,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS,"/**").permitAll()
                         .requestMatchers(HttpMethod.POST,"/api/users/register","/api/users/login","/api/payments/notify").permitAll()
                         .requestMatchers("/ws-auction/**").permitAll()
+
                         .requestMatchers(HttpMethod.GET,"/api/payments/health","/api/auctions").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/auctions/my-listings").hasAnyAuthority("SELLER","ADMIN")
                         .requestMatchers(HttpMethod.GET,"/api/auctions/my-wins","/api/auctions/my-losses","/api/auctions/my-active-bids","/api/auctions/*/my-bid","/api/auctions/offers").hasAuthority("BUYER")
@@ -37,12 +41,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE,"/api/auctions/*").hasAuthority("SELLER")
                         .requestMatchers(HttpMethod.PUT,"/api/auctions/*/close").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/auctions/*/reopen").hasAuthority("SELLER")
+
                         .requestMatchers(HttpMethod.GET,"/api/users").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.POST,"/api/users/create-admin").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/users/*/ban","/api/users/*/unban").hasAuthority("ADMIN")
                         .requestMatchers("/api/users/me").authenticated()
+
                         .requestMatchers(HttpMethod.POST,"/api/bids/**").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET,"/api/bids/**").authenticated()
+
                         .requestMatchers(HttpMethod.POST,"/api/deliveries").hasAuthority("SELLER")
                         .requestMatchers(HttpMethod.GET,"/api/deliveries/my-sales").hasAuthority("SELLER")
                         .requestMatchers(HttpMethod.GET,"/api/deliveries/my-purchases").hasAuthority("BUYER")
@@ -50,14 +57,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/deliveries").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/deliveries/*/reset-code").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/deliveries/*/accept","/api/deliveries/*/status").hasAuthority("DRIVER")
+
                         .requestMatchers(HttpMethod.POST,"/api/payments/initiate/*").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET,"/api/payments/my-payments","/api/payments/status/*").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET,"/api/payments/my-earnings").hasAuthority("SELLER")
                         .requestMatchers(HttpMethod.GET,"/api/payments").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/payments/*/cancel").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.PUT,"/api/payments/*/confirm-payout","/api/payments/*/confirm-refund","/api/payments/*/reconcile").hasAuthority("ADMIN")
+
                         .requestMatchers("/api/watchlist/**").hasAuthority("BUYER")
+
                         .requestMatchers("/api/messages/**","/api/orders/**").authenticated()
+
                         .requestMatchers("/api/cases/admin/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/cases/**").authenticated()
                         .anyRequest().denyAll())

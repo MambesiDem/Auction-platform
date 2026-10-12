@@ -90,14 +90,33 @@ class TransactionRegressionTest {
   mvc.perform(post("/api/users/register").contentType("application/json").content("{\"fullName\":\"Test\",\"email\":\""+UUID.randomUUID()+"@example.test\",\"password\":\"Password123\",\"role\":\"ADMIN\"}")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/auctions/my-wins")).andExpect(status().isUnauthorized());mvc.perform(get("/api/auctions/my-active-bids")).andExpect(status().isUnauthorized());
  }
- @Test void bannedTokenCannotContinue()throws Exception{String token=tokens.generateToken(a.getEmail());userService.setBanStatus(a.getId(),true);mvc.perform(get("/api/users/me").header("Authorization","Bearer "+token)).andExpect(status().isUnauthorized());}
+ @Test 
+ void bannedTokenCannotContinue()throws Exception{
+      String token=tokens.generateToken(a.getEmail());userService.setBanStatus(a.getId(),true);
+      mvc.perform(get("/api/users/me").header("Authorization","Bearer "+token)).andExpect(status().isUnauthorized());
+ }
  @Test void foreignBuyerCannotReadPaymentStatus(){AuctionItem x=auction(null);bidService.placeBid(x.getId(),100,a.getEmail());close(x);pay(x,a);assertThrows(SecurityException.class,()->paymentService.getPaymentByAuctionId(x.getId(),b.getEmail()));}
- @Test void bidderIdentityNotInPublicAuctionResult(){AuctionItem x=auction(null);bidService.placeBid(x.getId(),100,a.getEmail());close(x);var publicView=mapper.map(List.of(auctions.findById(x.getId()).orElseThrow()),null).getFirst();assertNull(publicView.getWinnerEmail());assertNull(publicView.getOwnerEmail());assertFalse(publicView.isCanPay());assertTrue(publicView.isHasWinner());}
+ @Test
+ void bidderIdentityNotInPublicAuctionResult(){
+  AuctionItem x=auction(null);
+  bidService.placeBid(x.getId(),100,a.getEmail());
+  close(x);
+  var publicView=mapper.map(List.of(auctions.findById(x.getId()).orElseThrow()),null).getFirst();
+  assertNull(publicView.getWinnerEmail());
+  assertNull(publicView.getOwnerEmail());
+  assertFalse(publicView.isCanPay());assertTrue(publicView.isHasWinner());}
 
  @Test void httpMutationsMapWithoutOpenSessionAndKeepWrongCodeCounter()throws Exception{
-  AuctionItem x=auction(null);bidService.placeBid(x.getId(),100,a.getEmail());Order o=close(x);pay(x,a);
+  AuctionItem x=auction(null);
+  bidService.placeBid(x.getId(),100,a.getEmail());
+  Order o=close(x);
+  pay(x,a);
+
   String sellerToken="Bearer "+tokens.generateToken(seller.getEmail()),driverToken="Bearer "+tokens.generateToken(driver.getEmail()),buyerToken="Bearer "+tokens.generateToken(a.getEmail());
-  mvc.perform(post("/api/deliveries").header("Authorization",sellerToken).contentType("application/json").content("{\"auctionId\":\""+x.getId()+"\",\"preparationEvidence\":\"intact and sealed\"}"))
+  mvc.perform(post("/api/deliveries")
+                  .header("Authorization",sellerToken)
+                  .contentType("application/json")
+                  .content("{\"auctionId\":\""+x.getId()+"\",\"preparationEvidence\":\"intact and sealed\"}"))
    .andExpect(status().isOk()).andExpect(jsonPath("auctionTitle").value("Test item"));
   Delivery d=deliveries.findByAuctionItemId(x.getId()).orElseThrow();
   mvc.perform(put("/api/deliveries/"+d.getId()+"/accept").header("Authorization",driverToken)).andExpect(status().isOk());

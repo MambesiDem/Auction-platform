@@ -6,7 +6,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public final class AfterCommit {
     private AfterCommit() {}
     public static void run(Runnable action) {
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("A transaction is required.");
+        if (!TransactionSynchronizationManager.isActualTransactionActive())
+            throw new IllegalStateException("A transaction is required.");
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCommit() {
                 try { action.run(); } catch (RuntimeException e) {

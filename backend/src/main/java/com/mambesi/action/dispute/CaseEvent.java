@@ -13,6 +13,13 @@ public class CaseEvent {
     @Column(nullable=false,length=4000) private String detail;
     @Column(nullable=false,updatable=false) private LocalDateTime recordedAt;
     protected CaseEvent(){}
-    public CaseEvent(OrderCase c,String actor,String detail){orderCase=c;this.actor=actor;this.detail=detail;recordedAt=com.mambesi.action.common.AppTime.now();}
-    public String getActor(){return actor;}public String getDetail(){return detail;}public LocalDateTime getRecordedAt(){return recordedAt;}
+    public CaseEvent(OrderCase c,String actor,String detail){
+        orderCase=c;
+        this.actor=actor;
+        this.detail=detail;
+        recordedAt=com.mambesi.action.common.AppTime.now();
+    }
+    public String getActor(){return actor;}
+    public String getDetail(){return detail;}
+    public LocalDateTime getRecordedAt(){return recordedAt;}
 }

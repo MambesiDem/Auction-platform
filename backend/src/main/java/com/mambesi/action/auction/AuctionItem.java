@@ -182,7 +182,9 @@ public class AuctionItem {
     public int getExtensionDurationMinutes() { return extensionDurationMinutes; }
     public void setExtensionDurationMinutes(int m) { this.extensionDurationMinutes = m; }
     public double getBidIncrement() { return bidIncrement == null ? 0.0 : bidIncrement.doubleValue(); }
-    public void setBidIncrement(double bidIncrement) { this.bidIncrement = com.mambesi.action.common.Money.value(bidIncrement); }
+    public void setBidIncrement(double bidIncrement) {
+        this.bidIncrement = com.mambesi.action.common.Money.value(bidIncrement);
+    }
 
     public Double getReservePrice() {
         return reservePrice == null ? null : reservePrice.doubleValue();

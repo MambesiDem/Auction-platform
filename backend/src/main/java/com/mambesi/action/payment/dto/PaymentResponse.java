@@ -12,9 +12,12 @@ public class PaymentResponse {
     public void setCreatedAt(java.time.LocalDateTime v){createdAt=v;}
     private String refundReference;
     private String settlementReference;
-    public UUID getOrderId(){return orderId;} public void setOrderId(UUID v){orderId=v;}
-    public String getRefundReference(){return refundReference;} public void setRefundReference(String v){refundReference=v;}
-    public String getSettlementReference(){return settlementReference;} public void setSettlementReference(String v){settlementReference=v;}
+    public UUID getOrderId(){return orderId;}
+    public void setOrderId(UUID v){orderId=v;}
+    public String getRefundReference(){return refundReference;}
+    public void setRefundReference(String v){refundReference=v;}
+    public String getSettlementReference(){return settlementReference;}
+    public void setSettlementReference(String v){settlementReference=v;}
     private UUID auctionId;
     private String auctionTitle;
     private String buyerEmail;

@@ -6,7 +6,9 @@ import java.time.LocalDateTime;
 public interface OrderRepository extends JpaRepository<Order,UUID> {
     @EntityGraph(attributePaths={"buyer","auctionItem","auctionItem.owner"})
     Optional<Order> findFirstByAuctionItemIdOrderByCreatedAtDescIdDesc(UUID auctionId);
-    default Optional<Order> findByAuctionItemId(UUID id) { return findFirstByAuctionItemIdOrderByCreatedAtDescIdDesc(id); }
+    default Optional<Order> findByAuctionItemId(UUID id) {
+        return findFirstByAuctionItemIdOrderByCreatedAtDescIdDesc(id);
+    }
     @EntityGraph(attributePaths={"buyer","auctionItem","auctionItem.owner"})
     List<Order> findByBuyerIdOrderByCreatedAtDesc(UUID id);
     default List<Order> findByBuyerId(UUID id){return findByBuyerIdOrderByCreatedAtDesc(id);}

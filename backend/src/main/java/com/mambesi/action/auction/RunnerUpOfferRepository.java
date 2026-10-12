@@ -10,7 +10,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface RunnerUpOfferRepository extends JpaRepository<RunnerUpOffer,UUID>{
-    @EntityGraph(attributePaths={"auction","buyer"}) List<RunnerUpOffer> findByBuyerEmailAndStatus(String email,RunnerUpOffer.Status status);
+    @EntityGraph(attributePaths={"auction","buyer"})
+    List<RunnerUpOffer> findByBuyerEmailAndStatus(String email,RunnerUpOffer.Status status);
     boolean existsByAuctionIdAndStatus(UUID id,RunnerUpOffer.Status status);
     boolean existsByAuctionIdAndBuyerId(UUID auction,UUID buyer);
     @Query("select o.auction.id from RunnerUpOffer o where o.status=:status and o.expiresAt<=:now")

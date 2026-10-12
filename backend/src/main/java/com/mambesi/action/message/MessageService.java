@@ -27,12 +27,14 @@ public class MessageService {
                 .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
         String threadId = generateThreadId(sender.getId(), receiver.getId());
-        if (request.getThreadId() != null && !request.getThreadId().isBlank() && !threadId.equals(request.getThreadId()))
+        if (request.getThreadId() != null && !request.getThreadId().isBlank() &&
+                !threadId.equals(request.getThreadId()))
             throw new SecurityException("This thread does not belong to these participants.");
         if (sender.getId().equals(receiver.getId())) throw new IllegalArgumentException("Choose another recipient.");
         if (request.getContent() == null || request.getContent().isBlank() || request.getContent().length() > 5000)
             throw new IllegalArgumentException("Message must contain 1 to 5000 characters.");
-        if (request.getSubject() != null && request.getSubject().length() > 200) throw new IllegalArgumentException("Subject is too long.");
+        if (request.getSubject() != null && request.getSubject().length() > 200)
+            throw new IllegalArgumentException("Subject is too long.");
 
         Message message = new Message();
         message.setSender(sender);

@@ -10,26 +10,72 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 @Service
 public class DeliveryService {
-    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
-    private final DeliveryRepository deliveries;private final AuctionRepository auctions;private final UserRepository users;
-    private final PaymentRepository payments;private final OrderService orders;private final PaymentService settlement;private final EmailService email;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+    private final DeliveryRepository deliveries;
+    private final AuctionRepository auctions;
+    private final UserRepository users;
+    private final PaymentRepository payments;
+    private final OrderService orders;
+    private final PaymentService settlement;
+    private final EmailService email;
     private final java.security.SecureRandom random=new java.security.SecureRandom();
-    public DeliveryService(DeliveryRepository d,AuctionRepository a,UserRepository u,PaymentRepository p,OrderService o,PaymentService s,EmailService e){deliveries=d;auctions=a;users=u;payments=p;orders=o;settlement=s;email=e;}
+    public DeliveryService(DeliveryRepository d,AuctionRepository a,UserRepository u,
+                           PaymentRepository p,OrderService o,PaymentService s,EmailService e){
+        deliveries=d;
+        auctions=a;
+        users=u;
+        payments=p;
+        orders=o;
+        settlement=s;
+        email=e;
+    }
     @Transactional public Delivery createDelivery(UUID id,String seller,String evidence){
-        AuctionItem a=lock(id);if(!a.getOwner().getEmail().equals(seller))throw new SecurityException("Only the seller can book collection.");
-        Order o=orders.getByAuctionId(id);Payment p=payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId()).orElseThrow(()->new IllegalArgumentException("Buyer payment is required before collection."));
-        if(a.isActive() || p.getStatus()!=PaymentStatus.HELD || !Set.of(OrderStatus.PREPARATION,OrderStatus.COLLECTION_PENDING).contains(o.getStatus()))throw new IllegalArgumentException("This order is not ready for collection.");
-        checkEvidence(evidence);Optional<Delivery> existing=deliveries.findByAuctionItemId(id);if(existing.isPresent())return existing.get();
-        Delivery d=new Delivery();d.setAuctionItem(a);d.setBuyer(o.getBuyer());d.setSeller(a.getOwner());d.setPreparationEvidence(evidence);d.setPickupCode(code());d.setDeliveryCode(code());d.setStatus(DeliveryStatus.PENDING);deliveries.save(d);
-        orders.transitionStatus(o.getId(),OrderStatus.COLLECTION_PENDING,seller,"Seller confirmed listed item and preparation evidence; collection offered");return d;
+        AuctionItem a=lock(id);
+        if(!a.getOwner().getEmail().equals(seller))
+            throw new SecurityException("Only the seller can book collection.");
+        Order o=orders.getByAuctionId(id);
+        Payment p=payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(o.getId())
+                .orElseThrow(()->new IllegalArgumentException("Buyer payment is required before collection."));
+        if(a.isActive() || p.getStatus()!=PaymentStatus.HELD || !Set.of(OrderStatus.PREPARATION,OrderStatus.COLLECTION_PENDING).contains(o.getStatus()))
+            throw new IllegalArgumentException("This order is not ready for collection.");
+        checkEvidence(evidence);
+        Optional<Delivery> existing=deliveries.findByAuctionItemId(id);
+        if(existing.isPresent())
+            return existing.get();
+        Delivery d=new Delivery();
+        d.setAuctionItem(a);
+        d.setBuyer(o.getBuyer());
+        d.setSeller(a.getOwner());
+        d.setPreparationEvidence(evidence);
+        d.setPickupCode(code());
+        d.setDeliveryCode(code());
+        d.setStatus(DeliveryStatus.PENDING);
+        deliveries.save(d);
+        orders.transitionStatus(o.getId(),OrderStatus.COLLECTION_PENDING,
+                seller,"Seller confirmed listed item and preparation evidence; collection offered");
+
+        return d;
     }
-    @Transactional public Delivery acceptDelivery(UUID id,String driver){
-        Delivery d=lockedDelivery(id);if(d.getStatus()!=DeliveryStatus.PENDING)throw new IllegalArgumentException("This job has already been accepted or cancelled.");
-        requirePaid(d);User u=users.findByEmail(driver).orElseThrow();if(u.getRole()!=Role.DRIVER || u.isBanned())throw new SecurityException("An active driver account is required.");
-        d.setDriver(u);d.setStatus(DeliveryStatus.ACCEPTED);deliveries.save(d);
-        AfterCommit.run(()->email.sendDeliveryStatusEmail(d.getBuyer().getEmail(),d.getAuctionItem().getTitle(),"ACCEPTED"));return d;
+    @Transactional
+    public Delivery acceptDelivery(UUID id,String driver){
+        Delivery d=lockedDelivery(id);
+        if(d.getStatus()!=DeliveryStatus.PENDING)
+            throw new IllegalArgumentException("This job has already been accepted or cancelled.");
+        requirePaid(d);
+        User u=users.findByEmail(driver).orElseThrow();
+        if(u.getRole()!=Role.DRIVER || u.isBanned())
+            throw new SecurityException("An active driver account is required.");
+        d.setDriver(u);
+        d.setStatus(DeliveryStatus.ACCEPTED);
+        deliveries.save(d);
+        AfterCommit.run(()->email.sendDeliveryStatusEmail(d.getBuyer().getEmail(),d.getAuctionItem().getTitle(),"ACCEPTED"));
+
+        return d;
     }
-    public static class InvalidCodeException extends IllegalArgumentException{public InvalidCodeException(String text){super(text);}}
+    public static class InvalidCodeException extends IllegalArgumentException{
+        public InvalidCodeException(String text){super(text);}
+    }
     @Transactional(noRollbackFor=InvalidCodeException.class)
     public Delivery updateStatus(UUID id,String driver,DeliveryStatus next,String suppliedCode,String evidence){
         Delivery d=lockedDelivery(id);

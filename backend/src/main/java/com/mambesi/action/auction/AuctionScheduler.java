@@ -11,12 +11,20 @@ public class AuctionScheduler {
     public AuctionScheduler(AuctionRepository a,AuctionService s,OrderRepository o,RunnerUpOfferRepository r){auctions=a;service=s;orders=o;offers=r;}
     @Scheduled(fixedDelay=5000)
     public void checkAuctions(){
-        for(UUID id:auctions.findDueToCloseIds(AppTime.now(),PageRequest.of(0,100))) attempt(id,()->service.closeExpiredAuction(id));
+        for(UUID id:auctions.findDueToCloseIds(AppTime.now(),PageRequest.of(0,100)))
+            attempt(id,()->service.closeExpiredAuction(id));
+
         Set<UUID> expired=new LinkedHashSet<>(orders.findExpiredAuctionIds(OrderStatus.AWAITING_PAYMENT,AppTime.now()));
         expired.addAll(offers.findExpiredAuctionIds(RunnerUpOffer.Status.OFFERED,AppTime.now()));
         // Declined offers also need their next candidate; include auctions with cancelled latest commitments.
         expired.addAll(auctions.findOffersToAdvance(AppTime.now(),PageRequest.of(0,100)));
-        for(UUID id:expired) attempt(id,()->service.expirePaymentAndReassign(id));
+        for(UUID id:expired)
+            attempt(id,()->service.expirePaymentAndReassign(id));
     }
-    private void attempt(UUID id,Runnable action){try{action.run();}catch(RuntimeException e){org.slf4j.LoggerFactory.getLogger(getClass()).error("Auction job failed for {}",id,e);}}
+    private void attempt(UUID id,Runnable action){
+        try{action.run();}
+        catch(RuntimeException e){
+            org.slf4j.LoggerFactory.getLogger(getClass()).error("Auction job failed for {}",id,e);
+        }
+    }
 }

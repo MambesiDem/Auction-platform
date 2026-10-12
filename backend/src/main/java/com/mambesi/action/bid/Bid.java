@@ -70,6 +70,7 @@ public class Bid {
     }
 
     public void setAmount(double amount) {
+
         this.amount = com.mambesi.action.common.Money.value(amount);
     }
 

@@ -8,5 +8,8 @@ import java.util.Optional;
 import java.util.UUID;
 public interface OrderCaseRepository extends JpaRepository<OrderCase,UUID>{
     Optional<OrderCase> findByOrderId(UUID id);
-    @Override @EntityGraph(attributePaths={"order","order.buyer","order.auctionItem","order.auctionItem.owner"}) List<OrderCase> findAll();
+
+    @Override
+    @EntityGraph(attributePaths={"order","order.buyer","order.auctionItem","order.auctionItem.owner"})
+    List<OrderCase> findAll();
 }

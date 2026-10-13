@@ -7,8 +7,18 @@ import org.springframework.data.domain.PageRequest;
 import java.util.*;
 @Component
 public class AuctionScheduler {
-    private final AuctionRepository auctions;private final AuctionService service;private final OrderRepository orders;private final RunnerUpOfferRepository offers;
-    public AuctionScheduler(AuctionRepository a,AuctionService s,OrderRepository o,RunnerUpOfferRepository r){auctions=a;service=s;orders=o;offers=r;}
+    private final AuctionRepository auctions;
+    private final AuctionService service;
+    private final OrderRepository orders;
+    private final RunnerUpOfferRepository offers;
+
+    public AuctionScheduler(AuctionRepository a,AuctionService s,OrderRepository o,RunnerUpOfferRepository r){
+        auctions=a;
+        service=s;
+        orders=o;
+        offers=r;
+    }
+
     @Scheduled(fixedDelay=5000)
     public void checkAuctions(){
         for(UUID id:auctions.findDueToCloseIds(AppTime.now(),PageRequest.of(0,100)))

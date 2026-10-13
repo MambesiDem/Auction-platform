@@ -13,6 +13,7 @@ import com.mambesi.action.user.Role;
 import com.mambesi.action.user.User;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 import java.util.function.Function;
@@ -20,7 +21,10 @@ import java.util.stream.Collectors;
 
 @Component
 public class AuctionResponseMapper {
-    @org.springframework.beans.factory.annotation.Autowired private AuctionRepository auctions;
+
+    @Autowired
+    private AuctionRepository auctions;
+
     private final BidRepository bids;
     private final OrderRepository orders;
     private final PaymentRepository payments;
@@ -48,7 +52,8 @@ public class AuctionResponseMapper {
 
         Map<UUID,Order> latest=new HashMap<>();
         for(Order o:orders.findByAuctionItemIdIn(ids))
-            latest.merge(o.getAuctionItem().getId(),o,(a,b)->compareOrders(a,b)>=0?a:b);
+            latest.merge(o.getAuctionItem()
+                    .getId(),o,(a,b)->compareOrders(a,b)>=0?a:b);
 
         Map<UUID,Payment> attempts=new HashMap<>();
         for(Payment p:payments.findByAuctionItemIdIn(ids))

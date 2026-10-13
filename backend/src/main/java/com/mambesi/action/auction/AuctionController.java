@@ -5,6 +5,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.*;
+import org.springframework.transaction.annotation.Transactional;
+
 @RestController @RequestMapping("/api/auctions")
 public class AuctionController {
     private final AuctionService service;private final AuctionResponseMapper mapper;
@@ -24,7 +26,7 @@ public class AuctionController {
         return one(service.createAuction(a,user(auth).getEmail()),auth);
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping
     public List<AuctionResponse> all(@RequestParam(defaultValue="0")int page,
                                      @RequestParam(defaultValue="100")int size,
@@ -33,48 +35,48 @@ public class AuctionController {
         return mapper.map(activeOnly?service.getOpenAuctions(page,size):service.getAllAuctions(page,size),user(auth));
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/my-listings")
     public List<AuctionResponse> listings(@RequestParam(defaultValue="0")int page,
                                           @RequestParam(defaultValue="100")int size,Authentication a){
         return mapper.map(service.getMyListings(user(a).getEmail(),page,size),user(a));
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/my-wins")
     public List<AuctionResponse> wins(@RequestParam(defaultValue="0")int page,
                                       @RequestParam(defaultValue="100")int size,Authentication a){
         return mapper.map(service.getMyWins(user(a).getEmail(),page,size),user(a));
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/won/{id}")
     public List<AuctionResponse> won(@PathVariable UUID id,@RequestParam(defaultValue="0")int page,
                                      @RequestParam(defaultValue="100")int size,Authentication a){
         return mapper.map(service.getAuctionsWonByUser(id,page,size),user(a));
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/my-losses")
     public List<AuctionResponse> losses(@RequestParam(defaultValue="0")int page,
                                         @RequestParam(defaultValue="100")int size,Authentication a){
         return mapper.map(service.getMyLosses(user(a).getEmail(),page,size),user(a));
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/my-active-bids")
     public List<AuctionResponse> active(@RequestParam(defaultValue="0")int page,
                                         @RequestParam(defaultValue="100")int size,Authentication a){
         return mapper.map(service.getMyActiveBids(user(a).getEmail(),page,size),user(a));
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/{id}")
     public AuctionResponse detail(@PathVariable UUID id,Authentication a){
         return one(service.getAuctionById(id),a);
     }
 
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+    @Transactional(readOnly=true)
     @GetMapping("/{id}/my-bid")
     public Double bid(@PathVariable UUID id,Authentication a){
         Double v=service.getMyHighestBid(id,user(a).getEmail());return v==null?0:v;
@@ -91,8 +93,11 @@ public class AuctionController {
     public AuctionResponse relist(@PathVariable UUID id,Authentication a){
         return one(service.reopenAuction(id,user(a).getEmail()),a);
     }
-    public record OfferView(UUID id,UUID auctionId,String title,double amount,java.time.LocalDateTime expiresAt){}
-    @org.springframework.transaction.annotation.Transactional(readOnly=true)
+
+    public record OfferView(UUID id,UUID auctionId,String title,double amount,
+                            java.time.LocalDateTime expiresAt){}
+
+    @Transactional(readOnly=true)
     @GetMapping("/offers")
     public List<OfferView> offers(Authentication a){
         return service.getOffers(user(a).getEmail())
@@ -101,6 +106,7 @@ public class AuctionController {
                         o.getAuction().getTitle(),o.getAmount(),o.getExpiresAt())).toList();
     }
     public record Response(boolean accept){}
+
     @PutMapping("/offers/{id}")
     public void respond(@PathVariable UUID id,@RequestBody Response r,Authentication a){
         service.respondToOffer(id,user(a).getEmail(),r.accept());

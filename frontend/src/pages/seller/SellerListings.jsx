@@ -9,6 +9,7 @@ import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
 import styles from './SellerListings.module.css';
+import SellerBuyNowDrafts from './SellerBuyNowDrafts';
 
 const EMPTY_FORM = {
     title: '',
@@ -214,7 +215,7 @@ export default function SellerListings() {
                         <div>
                             <h1 className={styles.pageTitle}>My Listings</h1>
                             <p className={styles.pageSubtitle}>
-                                {auctions.length} listing{auctions.length !== 1 ? 's' : ''} total
+                                {auctions.length} auction{auctions.length !== 1 ? 's' : ''} total
                             </p>
                         </div>
                         <button
@@ -367,7 +368,7 @@ export default function SellerListings() {
                             </form>
                         </div>
                     )}
-
+                    <SellerBuyNowDrafts />
                     {/* Tabs */}
                     <div className={styles.tabs}>
                         {TABS.map(tab => (

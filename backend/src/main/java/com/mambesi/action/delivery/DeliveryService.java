@@ -43,7 +43,8 @@ public class DeliveryService {
         Optional<Delivery> existing=deliveries.findByAuctionItemId(id);
         if(existing.isPresent())
             return existing.get();
-        Delivery d=new Delivery();
+        Delivery d = new Delivery();
+        d.setOrder(o);
         d.setAuctionItem(a);
         d.setBuyer(o.getBuyer());
         d.setSeller(a.getOwner());

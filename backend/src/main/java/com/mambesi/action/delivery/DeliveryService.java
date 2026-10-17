@@ -221,8 +221,8 @@ public class DeliveryService {
                     "Buyer handover code verified; delivery evidence recorded"
             );
 
-            // Settlement remains auction-based during this migration step.
-            settlement.scheduleRelease(delivery.getAuctionItem().getId());
+            // Schedule settlement eligibility for this delivery's exact order.
+            settlement.scheduleReleaseForOrder(order.getId());
         }
 
         AfterCommit.run(() -> email.sendDeliveryStatusEmail(

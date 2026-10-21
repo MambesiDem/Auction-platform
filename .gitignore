@@ -21,3 +21,10 @@ yarn-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+# Secrets (never commit)
+PayFast_Details.txt
+backend/Auth.txt
+*.env
+.env
+!.env.example
+!frontend/.env.example

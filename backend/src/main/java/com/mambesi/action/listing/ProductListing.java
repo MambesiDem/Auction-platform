@@ -19,7 +19,8 @@ public class ProductListing {
     }
 
     public enum Status {
-        DRAFT
+        DRAFT,
+        PUBLISHED
     }
 
     @Id
@@ -140,6 +141,9 @@ public class ProductListing {
 
     public Status getStatus() {
         return status;
+    }
+    public void setStatus(Status status) {
+        this.status = status;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -7,6 +7,8 @@ import org.springframework.data.domain.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import com.mambesi.action.order.Order;
+import com.mambesi.action.order.OrderService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -18,9 +20,11 @@ import java.util.UUID;
 public class ProductListingController {
 
     private final ProductListingRepository listings;
+    private final OrderService orders;
 
-    public ProductListingController(ProductListingRepository listings) {
+    public ProductListingController(ProductListingRepository listings, OrderService orders) {
         this.listings = listings;
+        this.orders = orders;
     }
 
     public record CreateRequest(
@@ -61,6 +65,31 @@ public class ProductListingController {
             ProductListing.Status status,
             LocalDateTime createdAt
     ) {}
+
+    public record BuyRequest(@NotNull @Min(1) Integer quantity) {}
+
+    public record BuyResponse(UUID orderId, double total, LocalDateTime paymentDeadline) {}
+
+    @PostMapping("/{id}/buy")
+    @Transactional
+    public BuyResponse buy(
+            @PathVariable UUID id,
+            @Valid @RequestBody BuyRequest request,
+            Authentication authentication
+    ) {
+        User buyer = (User) authentication.getPrincipal();
+
+        ProductListing listing = listings.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Listing not found."));
+
+        if (listing.getSeller().getId().equals(buyer.getId())) {
+            throw new IllegalArgumentException("You cannot buy your own listing.");
+        }
+
+        Order order = orders.createOrderForBuyNow(listing, buyer, request.quantity());
+
+        return new BuyResponse(order.getId(), order.getAgreedPrice(), order.getPaymentDeadline());
+    }
 
     @PostMapping
     @Transactional
@@ -115,6 +144,41 @@ public class ProductListingController {
 
         return listings.findBySellerId(seller.getId(), pageable)
                 .map(this::view);
+    }
+
+    @PostMapping("/{id}/publish")
+    @Transactional
+    public View publish(
+            @PathVariable UUID id,
+            Authentication authentication
+    ) {
+        User seller = (User) authentication.getPrincipal();
+        ProductListing listing = listings.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Listing not found."));
+        if (!listing.getSeller().getId().equals(seller.getId())) {
+            throw new IllegalArgumentException("You do not own this listing.");
+        }
+        if (listing.getStatus() == ProductListing.Status.PUBLISHED) {
+            return view(listing);
+        }
+        listing.setStatus(ProductListing.Status.PUBLISHED);
+        return view(listings.save(listing));
+    }
+    @GetMapping
+    @Transactional(readOnly = true)
+    public Page<View> browse(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException(
+                    "Page must be zero or greater. Page size must be between 1 and 100.");
+        }
+        return listings.findByStatus(
+                ProductListing.Status.PUBLISHED,
+                PageRequest.of(page, size,
+                        Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+        ).map(this::view);
     }
 
     private View view(ProductListing listing) {

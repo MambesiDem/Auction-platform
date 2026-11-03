@@ -31,7 +31,7 @@ public class Payment {
     public void setRefundReference(String r){refundReference=r;}
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "auction_id", nullable = false)
+    @JoinColumn(name = "auction_id", nullable = true)
     private AuctionItem auctionItem;
 
     @ManyToOne(fetch = FetchType.LAZY)

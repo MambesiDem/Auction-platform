@@ -446,3 +446,11 @@
     .actionBtn, .deleteBtn { width: auto; flex: 1; }
     .pageHeader { flex-direction: column; align-items: flex-start; gap: 12px; }
 }
+
+/* Keep grouped draft fields consistent with the existing form. */
+.draftFieldset {
+    border: none;
+    padding: 0;
+    margin: 16px 0 24px;
+    min-width: 0;
+}

@@ -75,7 +75,8 @@ public class CaseController {
         return (User)a.getPrincipal();
     }
     private View view(OrderCase c){
-        return new View(c.getId(),c.getOrder().getId(),c.getOrder().getAuctionItem().getId(),
+        return new View(c.getId(),c.getOrder().getId(),
+                c.getOrder().getAuctionItem() == null ? null : c.getOrder().getAuctionItem().getId(),
                 c.getOrder().getListingTitle(),c.getStatus().name(),c.getReason(),c.getBuyerEvidence(),
                 c.getSellerEvidence(),c.getDecision(),c.getReturnInstructions(),c.getReturnCostAllocation(),
                 c.getTracking(),c.getReceiptEvidence(),service.history(c));

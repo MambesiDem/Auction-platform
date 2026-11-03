@@ -130,24 +130,46 @@ public class DeliveryController {
     }
 
     private DeliveryResponse mapToResponse(Delivery delivery) {
+        var auction = delivery.getAuctionItem();
+        var order = delivery.getOrder();
+
+        String listingTitle = order != null
+                && order.getListingTitle() != null
+                && !order.getListingTitle().isBlank()
+                ? order.getListingTitle()
+                : auction != null ? auction.getTitle() : null;
+
         DeliveryResponse response = new DeliveryResponse(
                 delivery.getId(),
-                delivery.getAuctionItem().getId(),
-                delivery.getAuctionItem().getTitle(),
-                delivery.getStatus() == DeliveryStatus.PENDING ? null : delivery.getSeller().getEmail(),
-                delivery.getStatus() == DeliveryStatus.PENDING ? null : delivery.getBuyer().getEmail(),
-                delivery.getDriver() != null ? delivery.getDriver().getEmail() : null,
+                auction != null ? auction.getId() : null,
+                auction != null ? auction.getTitle() : null,
+                delivery.getStatus() == DeliveryStatus.PENDING
+                        ? null : delivery.getSeller().getEmail(),
+                delivery.getStatus() == DeliveryStatus.PENDING
+                        ? null : delivery.getBuyer().getEmail(),
+                delivery.getDriver() != null
+                        ? delivery.getDriver().getEmail() : null,
                 delivery.getStatus(),
                 delivery.getCreatedAt(),
                 delivery.getUpdatedAt()
         );
+
+        response.setOrderId(order != null ? order.getId() : null);
+        response.setListingTitle(listingTitle);
+
         String viewer = getAuthenticatedEmail();
-        if (viewer.equals(delivery.getSeller().getEmail()) &&
-                delivery.getStatus()==DeliveryStatus.ACCEPTED)
+
+        // Only the seller receives the pickup code, after driver acceptance.
+        if (viewer.equals(delivery.getSeller().getEmail())
+                && delivery.getStatus() == DeliveryStatus.ACCEPTED) {
             response.setPickupCode(delivery.getPickupCode());
-        if (viewer.equals(delivery.getBuyer().getEmail()) &&
-                delivery.getStatus()==DeliveryStatus.IN_TRANSIT)
+        }
+
+        // Only the buyer receives the delivery code, while in transit.
+        if (viewer.equals(delivery.getBuyer().getEmail())
+                && delivery.getStatus() == DeliveryStatus.IN_TRANSIT) {
             response.setDeliveryCode(delivery.getDeliveryCode());
+        }
 
         return response;
     }

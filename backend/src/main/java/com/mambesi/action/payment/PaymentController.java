@@ -135,6 +135,11 @@ public class PaymentController {
                 .toList();
     }
 
+    @PostMapping("/initiate-order/{orderId}")
+    public ResponseEntity<String> initiateForOrder(@PathVariable UUID orderId, Authentication auth){
+        return ResponseEntity.ok(service.initiatePaymentForOrder(orderId, user(auth).getEmail()));
+    }
+
     @Transactional(readOnly=true)
     @GetMapping("/status/{id}")
     public PaymentResponse status(@PathVariable UUID id,Authentication a){

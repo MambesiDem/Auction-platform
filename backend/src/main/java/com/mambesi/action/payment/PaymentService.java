@@ -46,21 +46,36 @@ public class PaymentService {
         email = m;
     }
 
+    // Auction orders: the frontend still sends the auction ID, so this keeps its behaviour.
     @Transactional
     public String initiatePayment(UUID auctionId, String buyer) {
+        lock(auctionId);   // lock first, then read, as before
+        Order order = orders.getByAuctionId(auctionId);
+        return startCheckout(order, buyer);
+    }
+
+    // Any order by order ID. Buy Now orders have no auction, so there is no auction lock.
+    @Transactional
+    public String initiatePaymentForOrder(UUID orderId, String buyer) {
+        Order order = orders.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found."));
+        if (order.getAuctionItem() != null) {
+            return initiatePayment(order.getAuctionItem().getId(), buyer);
+        }
+        return startCheckout(order, buyer);
+    }
+
+    private String startCheckout(Order order, String buyer) {
         provider.requireCheckoutAllowed();
 
-        AuctionItem auction = lock(auctionId);
-        Order order = orders.getByAuctionId(auctionId);
+        AuctionItem auction = order.getAuctionItem();   // null for Buy Now orders
 
-        if (auction.isActive()
-                || !order.getBuyer().getEmail().equals(buyer)
+        if (!order.getBuyer().getEmail().equals(buyer)
+                || (auction != null
+                && (auction.isActive()
                 || auction.getWinner() == null
-                || !auction.getWinner().getId()
-                .equals(order.getBuyer().getId())) {
-            throw new SecurityException(
-                    "Only the current committed buyer can pay."
-            );
+                || !auction.getWinner().getId().equals(order.getBuyer().getId())))) {
+            throw new SecurityException("Only the current committed buyer can pay.");
         }
 
         if (order.getStatus() != OrderStatus.AWAITING_PAYMENT
@@ -68,55 +83,45 @@ public class PaymentService {
                 || !AppTime.now().isBefore(order.getPaymentDeadline())) {
             throw new IllegalArgumentException(
                     "Payment is not available for this order. "
-                            + "If you already attempted payment, contact support."
-            );
+                            + "If you already attempted payment, contact support.");
         }
 
         Optional<Payment> latest = payments
                 .findFirstByOrderIdOrderByCreatedAtDescIdDesc(order.getId());
 
-        if (latest.isPresent()
-                && latest.get().getStatus() == PaymentStatus.PENDING) {
-            // Resume the existing attempt rather than creating another one.
-            return provider.checkout(latest.get());
+        if (latest.isPresent() && latest.get().getStatus() == PaymentStatus.PENDING) {
+            return provider.checkout(latest.get());   // resume the existing attempt
+        }
+        if (latest.isPresent() && latest.get().getStatus() != PaymentStatus.FAILED) {
+            throw new IllegalArgumentException(
+                    "This order already has a confirmed or unresolved payment.");
         }
 
-        if (latest.isPresent()
-                && latest.get().getStatus() != PaymentStatus.FAILED) {
-            throw new IllegalArgumentException(
-                    "This order already has a confirmed or unresolved payment."
-            );
+        var seller = order.getSeller() != null
+                ? order.getSeller()
+                : (auction != null ? auction.getOwner() : null);
+        if (seller == null) {
+            throw new IllegalStateException("This order has no seller. Contact support.");
         }
 
         Payment payment = new Payment();
         payment.setAuctionItem(auction);
         payment.setOrder(order);
         payment.setBuyer(order.getBuyer());
-        payment.setSeller(auction.getOwner());
+        payment.setSeller(seller);
         payment.setTotalAmount(order.getAgreedPrice());
 
-        var fee = Money.fee(
-                order.getAgreedPrice(),
-                order.getCommissionRate()
-        );
-
+        var fee = Money.fee(order.getAgreedPrice(), order.getCommissionRate());
         payment.setCommissionAmount(fee.doubleValue());
         payment.setSellerAmount(
-                Money.value(order.getAgreedPrice())
-                        .subtract(fee)
-                        .doubleValue()
-        );
+                Money.value(order.getAgreedPrice()).subtract(fee).doubleValue());
         payment.setStatus(PaymentStatus.PENDING);
 
         payments.saveAndFlush(payment);
 
         events.save(new PaymentEvent(
-                payment,
-                null,
-                PaymentStatus.PENDING,
-                buyer,
-                "Hosted checkout attempt created"
-        ));
+                payment, null, PaymentStatus.PENDING, buyer,
+                "Hosted checkout attempt created"));
 
         return provider.checkout(payment);
     }
@@ -184,7 +189,10 @@ public class PaymentService {
         Payment payment = payments.findById(notification.paymentId())
                 .orElseThrow();
 
-        lock(payment.getAuctionItem().getId());
+        // Lock auction if this is an auction order, otherwise rely on order-level lock
+        if (payment.getAuctionItem() != null) {
+            lock(payment.getAuctionItem().getId());
+        }
         entityManager.refresh(payment);
 
         Optional<Payment> other = payments.findByPayfastPaymentId(
@@ -292,18 +300,15 @@ public class PaymentService {
                 "Verified buyer payment"
         );
 
+        String title = payment.getAuctionItem() != null
+                ? payment.getAuctionItem().getTitle()
+                : payment.getOrder().getListingTitle();
+
         AfterCommit.run(() -> {
             email.sendPaymentConfirmedEmail(
-                    payment.getBuyer().getEmail(),
-                    payment.getAuctionItem().getTitle(),
-                    payment.getTotalAmount()
-            );
-
+                    payment.getBuyer().getEmail(), title, payment.getTotalAmount());
             email.sendSellerPaymentReceivedEmail(
-                    payment.getSeller().getEmail(),
-                    payment.getAuctionItem().getTitle(),
-                    payment.getSellerAmount()
-            );
+                    payment.getSeller().getEmail(), title, payment.getSellerAmount());
         });
     }
 
@@ -702,12 +707,19 @@ public class PaymentService {
     }
 
     public PaymentResponse mapToResponse(Payment payment) {
+        UUID auctionId = payment.getAuctionItem() != null
+                ? payment.getAuctionItem().getId() : null;
+        String title = payment.getAuctionItem() != null
+                ? payment.getAuctionItem().getTitle()
+                : (payment.getOrder() != null
+                ? payment.getOrder().getListingTitle() : "");
+
         PaymentResponse response = new PaymentResponse(
                 payment.getId(),
-                payment.getAuctionItem().getId(),
-                payment.getAuctionItem().getTitle(),
-                payment.getBuyer().getEmail(),
-                payment.getSeller().getEmail(),
+                auctionId,
+                title,
+                payment.getBuyer() != null ? payment.getBuyer().getEmail() : null,
+                payment.getSeller() != null ? payment.getSeller().getEmail() : null,
                 payment.getTotalAmount(),
                 payment.getCommissionAmount(),
                 payment.getSellerAmount(),
@@ -717,11 +729,8 @@ public class PaymentService {
                 payment.getReleasedAt()
         );
 
-        response.setOrderId(
-                payment.getOrder() == null
-                        ? null
-                        : payment.getOrder().getId()
-        );
+        response.setOrderId(payment.getOrder() == null
+                ? null : payment.getOrder().getId());
         response.setCreatedAt(payment.getCreatedAt());
         response.setRefundReference(payment.getRefundReference());
         response.setSettlementReference(payment.getSettlementReference());

@@ -419,8 +419,9 @@ public class CaseService {
                 ));
 
         // Preserve auction locking until product-order locking is implemented.
-        auctions.findByIdForUpdate(order.getAuctionItem().getId())
-                .orElseThrow();
+        if (order.getAuctionItem() != null) {
+            auctions.findByIdForUpdate(order.getAuctionItem().getId()).orElseThrow();
+        }
 
         entityManager.refresh(order);
 

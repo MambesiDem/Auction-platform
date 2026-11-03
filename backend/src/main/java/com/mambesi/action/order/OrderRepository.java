@@ -61,6 +61,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             select o.auctionItem.id
             from Order o
             where o.status = :status
+              and o.auctionItem is not null
               and o.paymentDeadline <= :now
               and not exists (
                   select p.id

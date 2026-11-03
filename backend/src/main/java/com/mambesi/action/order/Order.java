@@ -29,13 +29,12 @@ public class Order {
     @Column(length = 10000)
     private String listingDescription;
 
-    // Remains required until product-only order handling is implemented.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "auction_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "auction_id", nullable = true)
     private AuctionItem auctionItem;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_listing_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "product_listing_id", nullable = true)
     private ProductListing productListing;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,1 +1,0 @@
-ALTER TABLE orders ALTER COLUMN auction_id DROP NOT NULL;

@@ -3,7 +3,6 @@ package com.mambesi.action.delivery;
 import com.mambesi.action.auction.AuctionItem;
 import com.mambesi.action.user.User;
 import jakarta.persistence.*;
-import com.mambesi.action.order.Order;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -44,12 +43,6 @@ public class Delivery {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "auction_id", nullable = false, unique = true)
     private AuctionItem auctionItem;
-
-    // Each delivery belongs to one specific order.
-    // Nullable temporarily so existing delivery records remain compatible.
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", unique = true)
-    private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id")
@@ -104,11 +97,4 @@ public class Delivery {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public Order getOrder() {
-        return order;
-    }
-
-    public void setOrder(Order order) {
-        this.order = order;
-    }
 }

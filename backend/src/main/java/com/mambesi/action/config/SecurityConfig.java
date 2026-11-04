@@ -58,7 +58,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,"/api/deliveries/*/reset-code").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/deliveries/*/accept","/api/deliveries/*/status").hasAuthority("DRIVER")
 
-                        .requestMatchers(HttpMethod.POST,"/api/payments/initiate/*","/api/payments/initiate-order/*").hasAuthority("BUYER")
+                        .requestMatchers(HttpMethod.POST,"/api/payments/initiate/*").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET,"/api/payments/my-payments","/api/payments/status/*").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET,"/api/payments/my-earnings").hasAuthority("SELLER")
                         .requestMatchers(HttpMethod.GET,"/api/payments").hasAuthority("ADMIN")
@@ -71,20 +71,6 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/cases/admin/**").hasAuthority("ADMIN")
                         .requestMatchers("/api/cases/**").authenticated()
-
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/product-listings").hasAuthority("SELLER")
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/product-listings/*/publish").hasAuthority("SELLER")
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/product-listings/mine").hasAuthority("SELLER")
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/product-listings").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/product-listings/*").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/product-listings/*/buy").hasAuthority("BUYER")
-
                         .anyRequest().denyAll())
                 .addFilterBefore(filter,UsernamePasswordAuthenticationFilter.class).build();
     }

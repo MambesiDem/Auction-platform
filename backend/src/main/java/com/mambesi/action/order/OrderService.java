@@ -1,19 +1,14 @@
 package com.mambesi.action.order;
 import com.mambesi.action.auction.AuctionItem;
-import com.mambesi.action.listing.ProductListing;
 import com.mambesi.action.user.User;
 import com.mambesi.action.common.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
-import org.springframework.beans.factory.annotation.Value;
-import java.math.BigDecimal;
 @Service
 public class OrderService {
     private final OrderRepository orders;
     private final OrderEventRepository events;
-    @Value("${platform.commission}")
-    private double platformCommission;
     public OrderService(OrderRepository orders,OrderEventRepository events){
         this.orders=orders;
         this.events=events;
@@ -47,37 +42,6 @@ public class OrderService {
         return o;
     }
     @Transactional
-    public Order createOrderForBuyNow(ProductListing listing, User buyer,
-                                      int quantity) {
-        if (listing.getStatus() != com.mambesi.action.listing.ProductListing.Status.PUBLISHED) {
-            throw new IllegalStateException("Listing is not available for purchase.");
-        }
-        if (listing.getStockQuantity() < quantity) {
-            throw new IllegalStateException("Insufficient stock.");
-        }
-        listing.setStockQuantity(listing.getStockQuantity() - quantity);
-        java.math.BigDecimal unitPrice = listing.getUnitPrice();
-        java.math.BigDecimal total = unitPrice.multiply(
-                java.math.BigDecimal.valueOf(quantity));
-
-        Order o = new Order();
-        o.setProductListing(listing);
-        o.setSeller(listing.getSeller());
-        o.setBuyer(buyer);
-        o.setQuantity(quantity);
-        o.setUnitPrice(unitPrice);
-        o.setAgreedPrice(total.doubleValue());
-        o.setCommissionRate(platformCommission);
-        o.setListingTitle(listing.getTitle());
-        o.setListingDescription(listing.getDescription());
-        o.setPaymentDeadline(AppTime.now().plusMinutes(15));
-        o.setLastActorEmail("system");
-        o.setLastReason("Buy Now order created");
-        orders.save(o);
-        events.save(new OrderEvent(o, null, o.getStatus(), "system", o.getLastReason()));
-        return o;
-    }
-    @Transactional
     public Order transitionStatus(UUID id,OrderStatus next,String actor,String reason){
         Order o=orders.findById(id).orElseThrow(()->new IllegalArgumentException("Order not found."));
         if(actor==null || actor.isBlank() || reason==null || reason.isBlank() || reason.length()>6000)
@@ -107,9 +71,6 @@ public class OrderService {
     public Optional<Order> findByAuctionId(UUID id){return orders.findByAuctionItemId(id);}
     public Order getByAuctionId(UUID id){
         return findByAuctionId(id).orElseThrow(()->new IllegalArgumentException("Order not found."));
-    }
-    public Optional<Order> findById(UUID id) {
-        return orders.findById(id);
     }
     public List<Order> getOrdersForBuyer(UUID id){return orders.findByBuyerId(id);}
     public List<Order> getOrdersForSeller(String email){return orders.findByAuctionItemOwnerEmail(email);}

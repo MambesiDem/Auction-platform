@@ -22,8 +22,6 @@ public class DeliveryResponse {
     private DeliveryStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private UUID orderId;
-    private String listingTitle;
 
     public DeliveryResponse(UUID id, UUID auctionId, String auctionTitle,
                             String sellerEmail, String buyerEmail, String driverEmail,
@@ -49,19 +47,4 @@ public class DeliveryResponse {
     public DeliveryStatus getStatus() { return status; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public UUID getOrderId() {
-        return orderId;
-    }
-
-    public void setOrderId(UUID orderId) {
-        this.orderId = orderId;
-    }
-
-    public String getListingTitle() {
-        return listingTitle;
-    }
-
-    public void setListingTitle(String listingTitle) {
-        this.listingTitle = listingTitle;
-    }
 }

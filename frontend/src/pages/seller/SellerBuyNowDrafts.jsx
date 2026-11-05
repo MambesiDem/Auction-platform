@@ -20,6 +20,25 @@ const CONDITIONS = [
     ['FAIR', 'Fair'],
 ];
 
+// Suggestions only. Sellers can still type any category.
+const CATEGORY_SUGGESTIONS = [
+    'Electronics',
+    'Fashion',
+    'Furniture',
+    'Vehicles',
+    'Art',
+    'Collectables',
+    'Home',
+    'Other',
+];
+
+const conditionLabel = (value) => {
+    const match = CONDITIONS.find(([key]) => key === value);
+    return match ? match[1] : value;
+};
+
+const money = (value) => `R${Number(value).toFixed(2)}`;
+
 export default function SellerBuyNowDrafts() {
     const [expanded, setExpanded] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
@@ -27,17 +46,23 @@ export default function SellerBuyNowDrafts() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [drafts, setDrafts] = useState([]);
+    const [listings, setListings] = useState([]);
     const [page, setPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [refresh, setRefresh] = useState(0);
+    const [publishingId, setPublishingId] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [fileKey, setFileKey] = useState(0);
 
+    const busy = saving || publishingId !== null;
+
+    // Load the seller's Buy Now listings (drafts and published) when the panel is open.
     useEffect(() => {
-        if (!expanded) return;
+        if (!expanded) return undefined;
 
         const controller = new AbortController();
 
-        async function loadDrafts() {
+        async function loadListings() {
             setLoading(true);
             setError('');
 
@@ -51,14 +76,14 @@ export default function SellerBuyNowDrafts() {
                 );
 
                 if (!controller.signal.aborted) {
-                    setDrafts(response.data.content);
+                    setListings(response.data.content);
                     setTotalPages(response.data.totalPages);
                 }
             } catch (err) {
                 if (!controller.signal.aborted) {
                     setError(
                         err.response?.data?.message ||
-                        'Could not load Buy Now drafts. Please try again.'
+                        'Could not load your Buy Now listings. Please try again.'
                     );
                 }
             } finally {
@@ -68,10 +93,23 @@ export default function SellerBuyNowDrafts() {
             }
         }
 
-        loadDrafts();
+        loadListings();
 
         return () => controller.abort();
     }, [expanded, page, refresh]);
+
+    // Preview of the image chosen in the form. The temporary URL is released on change.
+    useEffect(() => {
+        if (!form.imageFile) {
+            setPreviewUrl(null);
+            return undefined;
+        }
+
+        const url = URL.createObjectURL(form.imageFile);
+        setPreviewUrl(url);
+
+        return () => URL.revokeObjectURL(url);
+    }, [form.imageFile]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -98,9 +136,14 @@ export default function SellerBuyNowDrafts() {
         setForm(current => ({ ...current, imageFile: file }));
     };
 
+    const handleRemoveImage = () => {
+        setForm(current => ({ ...current, imageFile: null }));
+        setFileKey(current => current + 1);
+    };
+
     const handleSubmit = async (event) => {
         event.preventDefault();
-        if (saving) return;
+        if (busy) return;
 
         setError('');
         setSuccess('');
@@ -117,7 +160,7 @@ export default function SellerBuyNowDrafts() {
         }
 
         if (
-            !/^\d+(\.\d{1,2})?$/.test(priceText) ||
+            !/^\d{1,17}(\.\d{1,2})?$/.test(priceText) ||
             Number(priceText) <= 0
         ) {
             setError('Enter a positive unit price with at most two decimal places.');
@@ -136,9 +179,16 @@ export default function SellerBuyNowDrafts() {
         setSaving(true);
 
         try {
-            const imageUrl = form.imageFile
-                ? await uploadToCloudinary(form.imageFile)
-                : null;
+            let imageUrl = null;
+
+            if (form.imageFile) {
+                try {
+                    imageUrl = await uploadToCloudinary(form.imageFile);
+                } catch {
+                    setError('The image could not be uploaded. Check your connection and try again.');
+                    return;
+                }
+            }
 
             await axiosInstance.post('/api/product-listings', {
                 title,
@@ -151,17 +201,49 @@ export default function SellerBuyNowDrafts() {
             });
 
             setForm(EMPTY_FORM);
-            event.target.reset();
-            setSuccess('Draft saved. Buyers cannot see or purchase it yet.');
+            setFileKey(current => current + 1);
+            setSuccess('Draft saved. Buyers cannot see it until you publish it.');
             setPage(0);
             setRefresh(current => current + 1);
         } catch (err) {
             setError(
                 err.response?.data?.message ||
-                'Could not confirm that the draft was saved. Refresh the draft list before trying again.'
+                'Could not confirm that the draft was saved. Refresh the list before trying again.'
             );
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handlePublish = async (listing) => {
+        if (busy) return;
+
+        const units = `${listing.stockQuantity} unit${listing.stockQuantity === 1 ? '' : 's'}`;
+        const confirmed = window.confirm(
+            `Publish "${listing.title}"?\n\nBuyers will be able to see it and buy up to ${units} at ${money(listing.unitPrice)} each.`
+        );
+        if (!confirmed) return;
+
+        setError('');
+        setSuccess('');
+        setPublishingId(listing.id);
+
+        try {
+            const response = await axiosInstance.post(
+                `/api/product-listings/${listing.id}/publish`
+            );
+
+            setListings(current =>
+                current.map(item => (item.id === listing.id ? response.data : item))
+            );
+            setSuccess('Published. Buyers can now see and buy this listing.');
+        } catch (err) {
+            setError(
+                err.response?.data?.message ||
+                'Could not publish this listing. Refresh the list and try again.'
+            );
+        } finally {
+            setPublishingId(null);
         }
     };
 
@@ -179,8 +261,8 @@ export default function SellerBuyNowDrafts() {
                     type="button"
                     className={styles.createBtn}
                     aria-expanded={expanded}
-                    aria-controls="buy-now-drafts"
-                    disabled={saving}
+                    aria-controls="buy-now-listings"
+                    disabled={busy}
                     onClick={() => setExpanded(current => !current)}
                 >
                     {expanded ? 'Close Buy Now' : 'Manage Buy Now'}
@@ -188,10 +270,11 @@ export default function SellerBuyNowDrafts() {
             </div>
 
             {expanded && (
-                <div id="buy-now-drafts">
+                <div id="buy-now-listings">
                     <p className={styles.pageSubtitle}>
-                        These are drafts. Checkout is being added before
-                        listings can be published.
+                        Save a listing as a draft first. Drafts are private.
+                        Publish a listing when you are ready for buyers to see
+                        and buy it.
                     </p>
 
                     {error && (
@@ -252,9 +335,15 @@ export default function SellerBuyNowDrafts() {
                                         value={form.category}
                                         onChange={handleChange}
                                         maxLength={100}
-                                        placeholder="e.g. Art or Clothing"
+                                        list="product-categories"
+                                        placeholder="Pick a suggestion or type your own"
                                         required
                                     />
+                                    <datalist id="product-categories">
+                                        {CATEGORY_SUGGESTIONS.map(category => (
+                                            <option key={category} value={category} />
+                                        ))}
+                                    </datalist>
                                 </div>
 
                                 <div className={styles.field}>
@@ -320,12 +409,29 @@ export default function SellerBuyNowDrafts() {
                                         Item image (optional)
                                     </label>
                                     <input
+                                        key={fileKey}
                                         id="product-image"
                                         className={styles.fileInput}
                                         type="file"
                                         accept="image/*"
                                         onChange={handleImageChange}
                                     />
+                                    {previewUrl && (
+                                        <div className={styles.imagePreviewWrap}>
+                                            <img
+                                                src={previewUrl}
+                                                alt="Selected item preview"
+                                                className={styles.imagePreview}
+                                            />
+                                            <button
+                                                type="button"
+                                                className={styles.removeImage}
+                                                onClick={handleRemoveImage}
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -333,92 +439,146 @@ export default function SellerBuyNowDrafts() {
                                 <button
                                     type="submit"
                                     className={styles.submitBtn}
-                                    disabled={saving}
+                                    disabled={busy}
                                 >
-                                    {saving ? 'Saving...' : 'Save Buy Now draft'}
+                                    {saving ? 'Saving...' : 'Save as draft'}
                                 </button>
                             </div>
                         </fieldset>
                     </form>
 
-                    <h3 className={styles.formTitle}>Saved drafts</h3>
+                    <h3 className={styles.formTitle}>Your Buy Now listings</h3>
 
                     <button
                         type="button"
                         className={styles.cancelBtn}
-                        disabled={loading || saving}
+                        disabled={loading || busy}
                         onClick={() => setRefresh(current => current + 1)}
                     >
-                        Refresh drafts
+                        Refresh list
                     </button>
 
                     {loading ? (
-                        <p className={styles.loading}>Loading drafts...</p>
+                        <p className={styles.loading}>Loading your listings...</p>
                     ) : (
                         <div className={styles.listingsList}>
-                            {drafts.length === 0 && (
+                            {listings.length === 0 && !error && (
                                 <p className={styles.pageSubtitle}>
-                                    No drafts on this page.
+                                    No Buy Now listings yet. Fill in the form
+                                    above to save your first draft.
                                 </p>
                             )}
 
-                            {drafts.map(draft => (
-                                <div key={draft.id} className={styles.listingCard}>
-                                    {draft.imageUrl && (
-                                        <div className={styles.listingImageWrap}>
-                                            <img
-                                                src={draft.imageUrl}
-                                                alt={draft.title}
-                                                className={styles.listingImage}
-                                            />
-                                        </div>
-                                    )}
+                            {listings.map(listing => {
+                                const isPublished = listing.status === 'PUBLISHED';
+                                const soldOut = isPublished && listing.stockQuantity < 1;
+                                const publishing = publishingId === listing.id;
 
-                                    <div className={styles.listingInfo}>
-                                        <h3 className={styles.listingTitle}>
-                                            {draft.title}
-                                        </h3>
-                                        <p className={styles.listingDesc}>
-                                            {draft.description}
-                                        </p>
-                                        <div className={styles.listingMeta}>
-                                            <span className={styles.metaValue}>
-                                                R{Number(draft.unitPrice).toFixed(2)} per unit
-                                            </span>
-                                            <span className={styles.metaValue}>
-                                                Quantity: {draft.stockQuantity}
-                                            </span>
-                                            <span className={styles.textAmber}>
-                                                Draft · Not published
-                                            </span>
+                                return (
+                                    <div key={listing.id} className={styles.listingCard}>
+                                        <div className={styles.listingImageWrap}>
+                                            {listing.imageUrl ? (
+                                                <img
+                                                    src={listing.imageUrl}
+                                                    alt={listing.title}
+                                                    className={styles.listingImage}
+                                                />
+                                            ) : (
+                                                <div className={styles.listingImagePlaceholder}>
+                                                    📦
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className={styles.listingInfo}>
+                                            <h3 className={styles.listingTitle}>
+                                                {listing.title}
+                                            </h3>
+                                            <p className={styles.listingDesc}>
+                                                {listing.description}
+                                            </p>
+
+                                            <div className={styles.listingMeta}>
+                                                <div className={styles.metaItem}>
+                                                    <span className={styles.metaLabel}>Price per unit</span>
+                                                    <span className={styles.metaValue}>
+                                                        {money(listing.unitPrice)}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.metaItem}>
+                                                    <span className={styles.metaLabel}>In stock</span>
+                                                    <span
+                                                        className={`${styles.metaValue} ${soldOut ? styles.textAmber : ''}`}
+                                                    >
+                                                        {soldOut ? 'Sold out' : listing.stockQuantity}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.metaItem}>
+                                                    <span className={styles.metaLabel}>Condition</span>
+                                                    <span className={styles.metaValue}>
+                                                        {conditionLabel(listing.condition)}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.metaItem}>
+                                                    <span className={styles.metaLabel}>Status</span>
+                                                    <span
+                                                        className={`${styles.metaValue} ${isPublished ? styles.textGreen : styles.textAmber}`}
+                                                    >
+                                                        {isPublished ? 'Published' : 'Draft · Not visible to buyers'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.listingActions}>
+                                            {isPublished ? (
+                                                <span className={styles.deliveryCreated}>
+                                                    ✅ Published
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className={styles.actionBtn}
+                                                    disabled={busy}
+                                                    onClick={() => handlePublish(listing)}
+                                                    style={{
+                                                        opacity: busy ? 0.6 : 1,
+                                                        cursor: busy ? 'not-allowed' : 'pointer',
+                                                    }}
+                                                >
+                                                    {publishing ? 'Publishing...' : 'Publish'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
 
-                    <div className={styles.formActions}>
-                        <button
-                            type="button"
-                            className={styles.cancelBtn}
-                            disabled={page === 0 || loading || saving}
-                            onClick={() => setPage(current => current - 1)}
-                        >
-                            Previous
-                        </button>
-                        <span className={styles.pageSubtitle}>
-                            Page {page + 1} of {Math.max(totalPages, 1)}
-                        </span>
-                        <button
-                            type="button"
-                            className={styles.cancelBtn}
-                            disabled={page + 1 >= totalPages || loading || saving}
-                            onClick={() => setPage(current => current + 1)}
-                        >
-                            Next
-                        </button>
-                    </div>
+                    {totalPages > 1 && (
+                        <div className={styles.formActions}>
+                            <button
+                                type="button"
+                                className={styles.cancelBtn}
+                                disabled={page === 0 || loading || busy}
+                                onClick={() => setPage(current => current - 1)}
+                            >
+                                Previous
+                            </button>
+                            <span className={styles.pageSubtitle}>
+                                Page {page + 1} of {totalPages}
+                            </span>
+                            <button
+                                type="button"
+                                className={styles.cancelBtn}
+                                disabled={page + 1 >= totalPages || loading || busy}
+                                onClick={() => setPage(current => current + 1)}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </section>

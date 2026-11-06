@@ -1,0 +1,382 @@
+/* ---------- Auctions | Buy Now tabs (used by BuyerBrowse) ---------- */
+.modeTabs {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 20px;
+    background: var(--white);
+    border: 0.5px solid var(--border);
+    border-radius: 24px;
+}
+
+.modeTab {
+    border: none;
+    background: transparent;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.modeTab:hover {
+    color: var(--navy);
+}
+
+.modeTabActive,
+.modeTabActive:hover {
+    background: var(--navy);
+    color: white;
+}
+
+/* ---------- Listing cards (layout comes from BuyerBrowse.module.css) ---------- */
+.badgeCondition {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(26, 43, 74, 0.9);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.badgeStock {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(0, 168, 70, 0.9);
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 10px;
+}
+
+.badgeLow {
+    background: rgba(245, 158, 11, 0.95);
+}
+
+.badgeSoldOut {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+.cardCategory {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.errorBox {
+    background: var(--red-light);
+    border: 0.5px solid #FECACA;
+    color: var(--red);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.loadMoreWrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.secondaryBtn {
+    background: var(--white);
+    color: var(--navy);
+    border: 0.5px solid var(--border);
+    padding: 9px 22px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.secondaryBtn:hover:not(:disabled) {
+    border-color: var(--navy);
+}
+
+.secondaryBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ---------- Purchase dialog ---------- */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    padding: 16px;
+}
+
+.dialog {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.dialogTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 14px;
+}
+
+.itemRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.thumb,
+.thumbPlaceholder {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    border: 0.5px solid var(--border);
+    flex-shrink: 0;
+}
+
+.thumb {
+    object-fit: cover;
+}
+
+.thumbPlaceholder {
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.itemTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.itemMeta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.qtyBlock {
+    margin-bottom: 16px;
+}
+
+.qtyLabel {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.qtyRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qtyBtn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 0.5px solid var(--border);
+    background: var(--white);
+    font-size: 18px;
+    font-family: inherit;
+    color: var(--navy);
+    cursor: pointer;
+}
+
+.qtyBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.qtyInput {
+    width: 80px;
+    height: 40px;
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    outline: none;
+}
+
+.qtyInput:focus {
+    border-color: var(--navy);
+}
+
+.qtyError {
+    font-size: 12px;
+    color: var(--red);
+    margin-top: 6px;
+}
+
+.summary {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 0 0 12px;
+}
+
+.summaryRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.summaryRow dt,
+.summaryRow dd {
+    margin: 0;
+}
+
+.summaryTotal {
+    border-top: 0.5px solid var(--border);
+    margin-top: 6px;
+    padding-top: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.summaryTotal dd {
+    color: var(--green-dark);
+    font-size: 18px;
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.notice {
+    background: var(--amber-light);
+    border: 0.5px solid #FDE68A;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #92400E;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.dialogError {
+    background: var(--red-light);
+    border: 0.5px solid #FECACA;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 14px;
+}
+
+.dialogActions {
+    display: flex;
+    gap: 10px;
+}
+
+.cancelBtn {
+    flex: 1;
+    height: 42px;
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    background: transparent;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.cancelBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.primaryBtn {
+    flex: 2;
+    height: 42px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.primaryBtn:hover:not(:disabled) {
+    background: var(--navy-light);
+}
+
+.primaryBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.successIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--green-light);
+    color: var(--green-dark);
+    font-size: 24px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+}
+
+.centered {
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .dialog {
+        max-width: none;
+        border-radius: 16px 16px 0 0;
+        padding: 24px 20px 28px;
+    }
+}

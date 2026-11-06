@@ -7,7 +7,9 @@ import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
 import BidModal from '../../components/BidModal';
+import BuyNowListings from './BuyNowListings';
 import styles from './BuyerBrowse.module.css';
+import buyNowStyles from './BuyNowListings.module.css';
 import { useSearchParams } from 'react-router-dom';
 
 const CATEGORIES = ['All', 'Electronics', 'Fashion', 'Furniture', 'Vehicles', 'Art', 'Collectables', 'Other'];
@@ -20,6 +22,11 @@ const SORT_OPTIONS = [
 ];
 
 export default function BuyerBrowse() {
+    const [searchParams] = useSearchParams();
+    // Links such as /buyer/browse?mode=buy-now open the Buy Now tab.
+    const [mode, setMode] = useState(() =>
+        searchParams.get('mode') === 'buy-now' ? 'buyNow' : 'auctions'
+    );
     const [watchlisted, setWatchlisted] = useState({});
     const { user } = useAuth();
     const [auctions, setAuctions] = useState([]);
@@ -33,7 +40,6 @@ export default function BuyerBrowse() {
     const [minPrice, setMinPrice] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
     const [showFilters, setShowFilters] = useState(false);
-    const [searchParams] = useSearchParams();
 
     const fetchData = useCallback(async () => {
         try {
@@ -156,17 +162,6 @@ export default function BuyerBrowse() {
 
     const hasFilters = search || category !== 'All' || minPrice || maxPrice || sort !== 'ending';
 
-    if (loading) return (
-        <div className={styles.layout}>
-            <Sidebar role={user?.role} />
-            <div className={styles.main}>
-                <TopBar onSearch={setSearch} />
-                <div className={styles.loading}>Loading auctions...</div>
-            </div>
-            <BottomNav role={user?.role} />
-        </div>
-    );
-
     return (
         <div className={styles.layout}>
             <Sidebar role={user?.role} />
@@ -176,169 +171,203 @@ export default function BuyerBrowse() {
 
                 <div className={styles.content}>
 
-                    {/* Page header */}
-                    <div className={styles.pageHeader}>
-                        <div>
-                            <h1 className={styles.pageTitle}>Browse Auctions</h1>
-                            <p className={styles.pageSubtitle}>
-                                {filtered.length} auction{filtered.length !== 1 ? 's' : ''} available
-                            </p>
-                        </div>
+                    {/* Auctions | Buy Now */}
+                    <div
+                        className={buyNowStyles.modeTabs}
+                        role="tablist"
+                        aria-label="Browse by sale type"
+                    >
                         <button
-                            className={`${styles.filterToggle} ${showFilters ? styles.filterToggleActive : ''}`}
-                            onClick={() => setShowFilters(!showFilters)}
+                            type="button"
+                            role="tab"
+                            aria-selected={mode === 'auctions'}
+                            className={`${buyNowStyles.modeTab} ${mode === 'auctions' ? buyNowStyles.modeTabActive : ''}`}
+                            onClick={() => setMode('auctions')}
                         >
-                            🎛 Filters {hasFilters && <span className={styles.filterDot} />}
+                            Auctions
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={mode === 'buyNow'}
+                            className={`${buyNowStyles.modeTab} ${mode === 'buyNow' ? buyNowStyles.modeTabActive : ''}`}
+                            onClick={() => setMode('buyNow')}
+                        >
+                            Buy Now
                         </button>
                     </div>
 
-                    {/* Filter bar */}
-                    {showFilters && (
-                        <div className={styles.filterBar}>
-                            <div className={styles.filterGroup}>
-                                <label className={styles.filterLabel}>Sort by</label>
-                                <select
-                                    className={styles.filterSelect}
-                                    value={sort}
-                                    onChange={e => setSort(e.target.value)}
-                                >
-                                    {SORT_OPTIONS.map(o => (
-                                        <option key={o.value} value={o.value}>{o.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className={styles.filterGroup}>
-                                <label className={styles.filterLabel}>Min price (R)</label>
-                                <input
-                                    type="number"
-                                    className={styles.filterInput}
-                                    placeholder="0"
-                                    value={minPrice}
-                                    onChange={e => setMinPrice(e.target.value)}
-                                />
-                            </div>
-
-                            <div className={styles.filterGroup}>
-                                <label className={styles.filterLabel}>Max price (R)</label>
-                                <input
-                                    type="number"
-                                    className={styles.filterInput}
-                                    placeholder="Any"
-                                    value={maxPrice}
-                                    onChange={e => setMaxPrice(e.target.value)}
-                                />
-                            </div>
-
-                            {hasFilters && (
-                                <button className={styles.clearBtn} onClick={clearFilters}>
-                                    Clear all
-                                </button>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Category pills */}
-                    <div className={styles.categories}>
-                        {CATEGORIES.map(cat => (
-                            <button
-                                key={cat}
-                                className={`${styles.catPill} ${category === cat ? styles.catPillActive : ''}`}
-                                onClick={() => setCategory(cat)}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Auction grid */}
-                    {filtered.length === 0 ? (
-                        <div className={styles.emptyState}>
-                            <div className={styles.emptyIcon}>🔍</div>
-                            <h3 className={styles.emptyTitle}>No auctions found</h3>
-                            <p className={styles.emptySub}>
-                                {hasFilters
-                                    ? 'Try adjusting your filters or search term.'
-                                    : 'No live auctions right now. Check back soon.'}
-                            </p>
-                            {hasFilters && (
-                                <button className={styles.clearBtn} onClick={clearFilters}>
-                                    Clear filters
-                                </button>
-                            )}
-                        </div>
+                    {mode === 'buyNow' ? (
+                        <BuyNowListings search={search} />
+                    ) : loading ? (
+                        <div className={styles.loading}>Loading auctions...</div>
                     ) : (
-                        <div className={styles.grid}>
-                            {filtered.map(auction => {
-                                const timer = timers[auction.id];
-                                const isLive = timer?.state === 'live';
+                        <>
+                            {/* Page header */}
+                            <div className={styles.pageHeader}>
+                                <div>
+                                    <h1 className={styles.pageTitle}>Browse Auctions</h1>
+                                    <p className={styles.pageSubtitle}>
+                                        {filtered.length} auction{filtered.length !== 1 ? 's' : ''} available
+                                    </p>
+                                </div>
+                                <button
+                                    className={`${styles.filterToggle} ${showFilters ? styles.filterToggleActive : ''}`}
+                                    onClick={() => setShowFilters(!showFilters)}
+                                >
+                                    🎛 Filters {hasFilters && <span className={styles.filterDot} />}
+                                </button>
+                            </div>
 
-                                return (
-                                    <div key={auction.id} className={styles.card}>
-                                        {/* Image */}
-                                        <div className={styles.cardImageWrap}>
-                                            {auction.imageUrl ? (
-                                                <img
-                                                    src={auction.imageUrl}
-                                                    alt={auction.title}
-                                                    className={styles.cardImage}
-                                                />
-                                            ) : (
-                                                <div className={styles.cardImagePlaceholder}>
-                                                    <span>📦</span>
-                                                </div>
-                                            )}
-                                            {/* Timer badge */}
-                                            {timer && (
-                                                <span className={`${styles.timerBadge} ${
-                                                    timer.state === 'upcoming' ? styles.timerUpcoming :
-                                                    timer.state === 'ended'   ? styles.timerEnded :
-                                                    styles.timerLive
-                                                }`}>
-                                                    {timer.state === 'live' && '⏱ '}
-                                                    {timer.state === 'upcoming' ? `Starts ${timer.label}` : timer.label}
-                                                </span>
-                                            )}
-                                            {/* Extended badge */}
-                                            {auction.extended && (
-                                                <span className={styles.extendedBadge}>+Extended</span>
-                                            )}
-                                            {/* Watchlist button */}
-                                            <button
-                                                className={styles.wishlistBtn}
-                                                onClick={(e) => toggleWatchlist(e, auction.id)}
-                                                title={watchlisted[auction.id] ? 'Remove from watchlist' : 'Add to watchlist'}
-                                            >
-                                                {watchlisted[auction.id] ? '❤️' : '♡'}
-                                            </button>
-                                        </div>
-
-                                        {/* Card body */}
-                                        <div className={styles.cardBody}>
-                                            <h3 className={styles.cardTitle}>{auction.title}</h3>
-                                            <p className={styles.cardDesc}>{auction.description}</p>
-
-                                            <div className={styles.cardFooter}>
-                                                <div>
-                                                    <p className={styles.cardPriceLabel}>Current bid</p>
-                                                    <p className={styles.cardPrice}>
-                                                        R{auction.currentPrice?.toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    className={`${styles.bidBtn} ${!isLive ? styles.bidBtnDisabled : ''}`}
-                                                    onClick={() => isLive && setSelectedAuction(auction)}
-                                                    disabled={!isLive}
-                                                >
-                                                    {timer?.state === 'upcoming' ? 'Upcoming' :
-                                                     timer?.state === 'ended'   ? 'Ended' : 'Place bid'}
-                                                </button>
-                                            </div>
-                                        </div>
+                            {/* Filter bar */}
+                            {showFilters && (
+                                <div className={styles.filterBar}>
+                                    <div className={styles.filterGroup}>
+                                        <label className={styles.filterLabel}>Sort by</label>
+                                        <select
+                                            className={styles.filterSelect}
+                                            value={sort}
+                                            onChange={e => setSort(e.target.value)}
+                                        >
+                                            {SORT_OPTIONS.map(o => (
+                                                <option key={o.value} value={o.value}>{o.label}</option>
+                                            ))}
+                                        </select>
                                     </div>
-                                );
-                            })}
-                        </div>
+
+                                    <div className={styles.filterGroup}>
+                                        <label className={styles.filterLabel}>Min price (R)</label>
+                                        <input
+                                            type="number"
+                                            className={styles.filterInput}
+                                            placeholder="0"
+                                            value={minPrice}
+                                            onChange={e => setMinPrice(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className={styles.filterGroup}>
+                                        <label className={styles.filterLabel}>Max price (R)</label>
+                                        <input
+                                            type="number"
+                                            className={styles.filterInput}
+                                            placeholder="Any"
+                                            value={maxPrice}
+                                            onChange={e => setMaxPrice(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {hasFilters && (
+                                        <button className={styles.clearBtn} onClick={clearFilters}>
+                                            Clear all
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Category pills */}
+                            <div className={styles.categories}>
+                                {CATEGORIES.map(cat => (
+                                    <button
+                                        key={cat}
+                                        className={`${styles.catPill} ${category === cat ? styles.catPillActive : ''}`}
+                                        onClick={() => setCategory(cat)}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Auction grid */}
+                            {filtered.length === 0 ? (
+                                <div className={styles.emptyState}>
+                                    <div className={styles.emptyIcon}>🔍</div>
+                                    <h3 className={styles.emptyTitle}>No auctions found</h3>
+                                    <p className={styles.emptySub}>
+                                        {hasFilters
+                                            ? 'Try adjusting your filters or search term.'
+                                            : 'No live auctions right now. Check back soon.'}
+                                    </p>
+                                    {hasFilters && (
+                                        <button className={styles.clearBtn} onClick={clearFilters}>
+                                            Clear filters
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className={styles.grid}>
+                                    {filtered.map(auction => {
+                                        const timer = timers[auction.id];
+                                        const isLive = timer?.state === 'live';
+
+                                        return (
+                                            <div key={auction.id} className={styles.card}>
+                                                {/* Image */}
+                                                <div className={styles.cardImageWrap}>
+                                                    {auction.imageUrl ? (
+                                                        <img
+                                                            src={auction.imageUrl}
+                                                            alt={auction.title}
+                                                            className={styles.cardImage}
+                                                        />
+                                                    ) : (
+                                                        <div className={styles.cardImagePlaceholder}>
+                                                            <span>📦</span>
+                                                        </div>
+                                                    )}
+                                                    {/* Timer badge */}
+                                                    {timer && (
+                                                        <span className={`${styles.timerBadge} ${
+                                                            timer.state === 'upcoming' ? styles.timerUpcoming :
+                                                            timer.state === 'ended'   ? styles.timerEnded :
+                                                            styles.timerLive
+                                                        }`}>
+                                                            {timer.state === 'live' && '⏱ '}
+                                                            {timer.state === 'upcoming' ? `Starts ${timer.label}` : timer.label}
+                                                        </span>
+                                                    )}
+                                                    {/* Extended badge */}
+                                                    {auction.extended && (
+                                                        <span className={styles.extendedBadge}>+Extended</span>
+                                                    )}
+                                                    {/* Watchlist button */}
+                                                    <button
+                                                        className={styles.wishlistBtn}
+                                                        onClick={(e) => toggleWatchlist(e, auction.id)}
+                                                        title={watchlisted[auction.id] ? 'Remove from watchlist' : 'Add to watchlist'}
+                                                    >
+                                                        {watchlisted[auction.id] ? '❤️' : '♡'}
+                                                    </button>
+                                                </div>
+
+                                                {/* Card body */}
+                                                <div className={styles.cardBody}>
+                                                    <h3 className={styles.cardTitle}>{auction.title}</h3>
+                                                    <p className={styles.cardDesc}>{auction.description}</p>
+
+                                                    <div className={styles.cardFooter}>
+                                                        <div>
+                                                            <p className={styles.cardPriceLabel}>Current bid</p>
+                                                            <p className={styles.cardPrice}>
+                                                                R{auction.currentPrice?.toLocaleString()}
+                                                            </p>
+                                                        </div>
+                                                        <button
+                                                            className={`${styles.bidBtn} ${!isLive ? styles.bidBtnDisabled : ''}`}
+                                                            onClick={() => isLive && setSelectedAuction(auction)}
+                                                            disabled={!isLive}
+                                                        >
+                                                            {timer?.state === 'upcoming' ? 'Upcoming' :
+                                                             timer?.state === 'ended'   ? 'Ended' : 'Place bid'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
                     )}
 
                     <div style={{ height: '72px' }} />

@@ -6,9 +6,6 @@ import styles from './BuyNowListings.module.css';
 const PAGE_SIZE = 24;
 const LOW_STOCK = 5;
 
-// Remove this line when paying for Buy Now orders is added to the app.
-const PAYMENT_NOTE = 'Payment for Buy Now orders is not available in the app yet.';
-
 const CONDITION_LABELS = {
     NEW: 'New',
     LIKE_NEW: 'Like new',
@@ -338,6 +335,10 @@ function BuyDialog({ listing, onClose, onChanged }) {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [done, setDone] = useState(null);
+    const [paying, setPaying] = useState(false);
+    const [payError, setPayError] = useState('');
+
+    const busy = submitting || paying;
 
     const quantity = Number(qtyText);
     const quantityValid =
@@ -350,11 +351,11 @@ function BuyDialog({ listing, onClose, onChanged }) {
 
     useEffect(() => {
         const onKey = (event) => {
-            if (event.key === 'Escape' && !submitting) onClose();
+            if (event.key === 'Escape' && !busy) onClose();
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [onClose, submitting]);
+    }, [onClose, busy]);
 
     const step = (delta) => {
         const base = Number.isInteger(quantity) ? quantity : 1;
@@ -364,7 +365,7 @@ function BuyDialog({ listing, onClose, onChanged }) {
 
     const handleConfirm = async (event) => {
         event.preventDefault();
-        if (submitting || !quantityValid) return;
+        if (busy || !quantityValid) return;
 
         setSubmitting(true);
         setError('');
@@ -376,6 +377,7 @@ function BuyDialog({ listing, onClose, onChanged }) {
             );
 
             setDone({
+                orderId: response.data.orderId,
                 quantity,
                 total: response.data.total,
                 deadline: response.data.paymentDeadline,
@@ -392,12 +394,39 @@ function BuyDialog({ listing, onClose, onChanged }) {
         }
     };
 
+    // Starts the PayFast checkout for the order that was just created.
+    const handlePay = async () => {
+        if (paying || !done?.orderId) return;
+
+        setPaying(true);
+        setPayError('');
+
+        try {
+            const response = await axiosInstance.post(
+                `/api/payments/initiate-order/${done.orderId}`
+            );
+            const target = typeof response.data === 'string' ? response.data.trim() : '';
+
+            if (!/^https:\/\//i.test(target)) {
+                throw new Error('Unexpected payment response');
+            }
+
+            window.location.assign(target);
+        } catch (err) {
+            setPayError(
+                err.response?.data?.message ||
+                'Payment could not be started. Please try again.'
+            );
+            setPaying(false);
+        }
+    };
+
     const deadlineText = done ? formatTime(done.deadline) : null;
 
     return (
         <div
             className={styles.overlay}
-            onClick={() => { if (!submitting) onClose(); }}
+            onClick={() => { if (!busy) onClose(); }}
         >
             <div
                 className={styles.dialog}
@@ -432,11 +461,32 @@ function BuyDialog({ listing, onClose, onChanged }) {
                             )}
                         </dl>
 
-                        <p className={styles.notice}>{PAYMENT_NOTE}</p>
+                        <p className={styles.notice}>
+                            Your items are reserved. Pay now to confirm the order.
+                        </p>
+
+                        {payError && (
+                            <div className={styles.dialogError} role="alert">
+                                {payError}
+                            </div>
+                        )}
 
                         <div className={styles.dialogActions}>
-                            <button type="button" className={styles.primaryBtn} onClick={onClose}>
-                                Done
+                            <button
+                                type="button"
+                                className={styles.cancelBtn}
+                                onClick={onClose}
+                                disabled={paying}
+                            >
+                                Not now
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.primaryBtn}
+                                onClick={handlePay}
+                                disabled={paying}
+                            >
+                                {paying ? 'Opening PayFast...' : `Pay now · ${rand(done.total)}`}
                             </button>
                         </div>
                     </div>

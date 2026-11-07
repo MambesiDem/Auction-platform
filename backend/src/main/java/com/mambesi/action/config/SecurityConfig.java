@@ -59,7 +59,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,"/api/deliveries/*/accept","/api/deliveries/*/status").hasAuthority("DRIVER")
 
                         .requestMatchers(HttpMethod.POST,"/api/payments/initiate/*","/api/payments/initiate-order/*").hasAuthority("BUYER")
-                        .requestMatchers(HttpMethod.GET,"/api/payments/my-payments","/api/payments/status/*").hasAuthority("BUYER")
+                        .requestMatchers(HttpMethod.GET,"/api/payments/my-payments","/api/payments/status/*","/api/payments/status-by-order/*").hasAuthority("BUYER")
                         .requestMatchers(HttpMethod.GET,"/api/payments/my-earnings").hasAuthority("SELLER")
                         .requestMatchers(HttpMethod.GET,"/api/payments").hasAuthority("ADMIN")
                         .requestMatchers(HttpMethod.PUT,"/api/payments/*/cancel").hasAuthority("BUYER")

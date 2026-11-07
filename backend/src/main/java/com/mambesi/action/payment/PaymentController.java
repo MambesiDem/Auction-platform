@@ -146,6 +146,12 @@ public class PaymentController {
         return service.mapToResponse(service.getPaymentByAuctionId(id,user(a).getEmail()));
     }
 
+    @Transactional(readOnly=true)
+    @GetMapping("/status-by-order/{orderId}")
+    public PaymentResponse statusByOrder(@PathVariable UUID orderId,Authentication a){
+        return service.mapToResponse(service.getPaymentByOrderId(orderId,user(a).getEmail()));
+    }
+
     public record Confirmation(@NotBlank @Size(max=300)String reference){}
 
     @Transactional(noRollbackFor=com.mambesi.action.delivery.DeliveryService.InvalidCodeException.class)

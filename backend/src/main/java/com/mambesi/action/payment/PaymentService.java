@@ -702,6 +702,16 @@ public class PaymentService {
                 ));
     }
 
+    @Transactional(readOnly = true)
+    public Payment getPaymentByOrderId(UUID orderId, String buyerEmail) {
+        Payment payment = payments.findFirstByOrderIdOrderByCreatedAtDescIdDesc(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found."));
+        if (!payment.getBuyer().getEmail().equals(buyerEmail)) {
+            throw new SecurityException("This payment belongs to another buyer.");
+        }
+        return payment;
+    }
+
     public List<Payment> getAllPayments() {
         return payments.findAll();
     }

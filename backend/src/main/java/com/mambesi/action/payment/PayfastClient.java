@@ -48,7 +48,11 @@ public class PayfastClient {
         LinkedHashMap<String,String> fields=new LinkedHashMap<>();
         fields.put("merchant_id",merchantId);
         fields.put("merchant_key",merchantKey);
-        fields.put("return_url",returnUrl+(returnUrl.contains("?")?"&":"?")+"auction_id="+p.getAuctionItem().getId());
+        String returnSeparator = returnUrl.contains("?") ? "&" : "?";
+        String returnKey = p.getAuctionItem() != null
+                ? "auction_id=" + p.getAuctionItem().getId()   // auction payments: unchanged
+                : "order_id=" + p.getOrder().getId();          // Buy Now payments have no auction
+        fields.put("return_url", returnUrl + returnSeparator + returnKey);
         fields.put("cancel_url",cancelUrl);
         fields.put("notify_url",notifyUrl);
         String[] names=p.getBuyer().getFullName().trim().split("\s+",2);

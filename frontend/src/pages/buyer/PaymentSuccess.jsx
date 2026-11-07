@@ -8,28 +8,39 @@ export default function PaymentSuccess() {
     const [searchParams] = useSearchParams();
     const [status, setStatus] = useState('checking');
     const auctionId = searchParams.get('auction_id');
+    const orderId = searchParams.get('order_id');
+
+    // Auction payments are tracked by auction, Buy Now payments by order.
+    const statusPath = orderId
+        ? `/api/payments/status-by-order/${encodeURIComponent(orderId)}`
+        : auctionId
+            ? `/api/payments/status/${encodeURIComponent(auctionId)}`
+            : null;
 
     useEffect(() => {
-        let stopped=false, timer, redirect, attempts=0;
-        if (!auctionId) { setStatus('pending'); return; }
-        const check=async()=>{
+        let stopped = false, timer, redirect, attempts = 0;
+        if (!statusPath) { setStatus('pending'); return; }
+        const check = async () => {
             attempts++;
             try {
-                const { data }=await axiosInstance.get(`/api/payments/status/${auctionId}`);
-                if(stopped)return;
-                if(['HELD','RELEASE_REQUESTED','RELEASED'].includes(data.status)){
-                    setStatus('confirmed'); redirect=setTimeout(()=>navigate('/buyer/dashboard'),2500);return;
+                const { data } = await axiosInstance.get(statusPath);
+                if (stopped) return;
+                if (['HELD', 'RELEASE_REQUESTED', 'RELEASED'].includes(data.status)) {
+                    setStatus('confirmed');
+                    redirect = setTimeout(() => navigate('/buyer/dashboard'), 2500);
+                    return;
                 }
-                if(['FAILED','REVIEW_REQUIRED','REFUND_REQUESTED','REFUNDED'].includes(data.status)){
-                    setStatus('pending');return;
+                if (['FAILED', 'REVIEW_REQUIRED', 'REFUND_REQUESTED', 'REFUNDED'].includes(data.status)) {
+                    setStatus('pending');
+                    return;
                 }
-            } catch(error) { if(stopped)return; }
-            if(attempts>=10){setStatus('pending');return;}
-            timer=setTimeout(check,3000);
+            } catch (error) { if (stopped) return; }
+            if (attempts >= 10) { setStatus('pending'); return; }
+            timer = setTimeout(check, 3000);
         };
         check();
-        return ()=>{stopped=true;clearTimeout(timer);clearTimeout(redirect);};
-    },[auctionId,navigate]);
+        return () => { stopped = true; clearTimeout(timer); clearTimeout(redirect); };
+    }, [statusPath, navigate]);
 
     return (
         <div style={{ minHeight: '100vh', background: '#f4f5f7' }}>
@@ -91,8 +102,8 @@ export default function PaymentSuccess() {
                                 Confirmation pending
                             </p>
                             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '24px' }}>
-                                We have not yet verified your payment. Check your dashboard before paying again. Contact support if you were charged but confirmation is missing.
-                                Redirecting you now...
+                                We have not yet verified your payment. Check your dashboard before paying again.
+                                Contact support if you were charged but confirmation is missing.
                             </p>
                         </>
                     )}

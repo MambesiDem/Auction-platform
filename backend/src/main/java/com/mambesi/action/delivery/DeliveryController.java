@@ -31,8 +31,19 @@ public class DeliveryController {
     @PostMapping
     public DeliveryResponse createDelivery(@Valid @RequestBody DeliveryRequest request,
                                            HttpServletRequest httpRequest) {
+        if ((request.getAuctionId() == null) == (request.getOrderId() == null)) {
+            throw new IllegalArgumentException(
+                    "Choose either an auction or an order to book collection for.");
+        }
+
         String email = extractEmail(httpRequest);
-        Delivery delivery = deliveryService.createDelivery(request.getAuctionId(), email, request.preparationEvidence());
+
+        Delivery delivery = request.getOrderId() != null
+                ? deliveryService.createDeliveryForOrder(
+                request.getOrderId(), email, request.preparationEvidence())
+                : deliveryService.createDelivery(
+                request.getAuctionId(), email, request.preparationEvidence());
+
         return mapToResponse(delivery);
     }
 

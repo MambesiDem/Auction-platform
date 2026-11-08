@@ -189,10 +189,7 @@ public class PaymentService {
         Payment payment = payments.findById(notification.paymentId())
                 .orElseThrow();
 
-        // Lock auction if this is an auction order, otherwise rely on order-level lock
-        if (payment.getAuctionItem() != null) {
-            lock(payment.getAuctionItem().getId());
-        }
+        lockCommitment(payment);
         entityManager.refresh(payment);
 
         Optional<Payment> other = payments.findByPayfastPaymentId(
@@ -472,21 +469,34 @@ public class PaymentService {
         return payment;
     }
 
+    // Auction payments share the auction lock. Buy Now payments have no auction,
+    // so the order row is the shared lock instead.
+    private void lockCommitment(Payment payment) {
+        if (payment.getAuctionItem() != null) {
+            lock(payment.getAuctionItem().getId());
+            return;
+        }
+
+        if (payment.getOrder() == null) {
+            throw new IllegalStateException(
+                    "This payment is missing its order reference. Contact support."
+            );
+        }
+
+        entityManager.find(
+                Order.class,
+                payment.getOrder().getId(),
+                jakarta.persistence.LockModeType.PESSIMISTIC_WRITE
+        );
+    }
+
     private Payment lockSettlementPayment(UUID paymentId) {
         Payment payment = payments.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Payment not found."
                 ));
 
-        // Keep the existing shared auction lock during this migration.
-        // Product checkout needs its own locking support before activation.
-        if (payment.getAuctionItem() == null) {
-            throw new IllegalStateException(
-                    "Settlement for non-auction payments is not enabled yet."
-            );
-        }
-
-        lock(payment.getAuctionItem().getId());
+        lockCommitment(payment);
         entityManager.refresh(payment);
 
         Order order = payment.getOrder();
@@ -515,7 +525,7 @@ public class PaymentService {
                         "Payment not found."
                 ));
 
-        lock(payment.getAuctionItem().getId());
+        lockCommitment(payment);
         entityManager.refresh(payment);
 
         if (reference == null
@@ -607,7 +617,7 @@ public class PaymentService {
                         "Payment not found."
                 ));
 
-        lock(payment.getAuctionItem().getId());
+        lockCommitment(payment);
         entityManager.refresh(payment);
 
         if (reference == null

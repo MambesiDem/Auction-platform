@@ -42,7 +42,7 @@ public class Delivery {
     public void setDeliveryEvidence(String s){deliveryEvidence=s;}
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "auction_id", nullable = false, unique = true)
+    @JoinColumn(name = "auction_id", nullable = true, unique = true)
     private AuctionItem auctionItem;
 
     // Each delivery belongs to one specific order.

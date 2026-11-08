@@ -109,6 +109,88 @@ public class DeliveryService {
     }
 
     @Transactional
+    public Delivery createDeliveryForOrder(UUID orderId, String seller, String evidence) {
+        Order found = orders.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found."));
+
+        // Auction orders keep their own flow and auction lock.
+        if (found.getAuctionItem() != null) {
+            return createDelivery(found.getAuctionItem().getId(), seller, evidence);
+        }
+
+        // Buy Now: the order row is the shared lock, as the auction is for auctions.
+        Order order = entityManager.find(
+                Order.class,
+                orderId,
+                jakarta.persistence.LockModeType.PESSIMISTIC_WRITE
+        );
+        entityManager.refresh(order);
+
+        if (order.getSeller() == null
+                || !order.getSeller().getEmail().equals(seller)) {
+            throw new SecurityException("Only the seller can book collection.");
+        }
+
+        Payment payment = payments
+                .findFirstByOrderIdOrderByCreatedAtDescIdDesc(order.getId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Buyer payment is required before collection."
+                ));
+
+        if (payment.getStatus() != PaymentStatus.HELD
+                || !Set.of(
+                OrderStatus.PREPARATION,
+                OrderStatus.COLLECTION_PENDING
+        ).contains(order.getStatus())) {
+            throw new IllegalArgumentException(
+                    "This order is not ready for collection."
+            );
+        }
+
+        checkEvidence(evidence);
+
+        Optional<Delivery> existing = deliveries.findByOrderId(order.getId());
+
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        Delivery delivery = new Delivery();
+        delivery.setOrder(order);
+        delivery.setBuyer(order.getBuyer());
+        delivery.setSeller(order.getSeller());
+        delivery.setPreparationEvidence(evidence);
+        delivery.setPickupCode(code());
+        delivery.setDeliveryCode(code());
+        delivery.setStatus(DeliveryStatus.PENDING);
+
+        deliveries.save(delivery);
+
+        orders.transitionStatus(
+                order.getId(),
+                OrderStatus.COLLECTION_PENDING,
+                seller,
+                "Seller confirmed listed item and preparation evidence; collection offered"
+        );
+
+        return delivery;
+    }
+
+    private String deliveryTitle(Delivery delivery) {
+        Order order = delivery.getOrder();
+
+        if (order != null
+                && order.getListingTitle() != null
+                && !order.getListingTitle().isBlank()) {
+            return order.getListingTitle();
+        }
+
+        return delivery.getAuctionItem() != null
+                ? delivery.getAuctionItem().getTitle()
+                : "your order";
+    }
+
+    @Transactional
     public Delivery acceptDelivery(UUID id, String driver) {
         Delivery delivery = lockedDelivery(id);
 
@@ -132,9 +214,11 @@ public class DeliveryService {
         delivery.setStatus(DeliveryStatus.ACCEPTED);
         deliveries.save(delivery);
 
+        String title = deliveryTitle(delivery);
+
         AfterCommit.run(() -> email.sendDeliveryStatusEmail(
                 delivery.getBuyer().getEmail(),
-                delivery.getAuctionItem().getTitle(),
+                title,
                 "ACCEPTED"
         ));
 
@@ -225,9 +309,11 @@ public class DeliveryService {
             settlement.scheduleReleaseForOrder(order.getId());
         }
 
+        String title = deliveryTitle(delivery);
+
         AfterCommit.run(() -> email.sendDeliveryStatusEmail(
                 delivery.getBuyer().getEmail(),
-                delivery.getAuctionItem().getTitle(),
+                title,
                 next.name()
         ));
 
@@ -407,7 +493,20 @@ public class DeliveryService {
                         "Delivery not found."
                 ));
 
-        lock(delivery.getAuctionItem().getId());
+        if (delivery.getAuctionItem() != null) {
+            lock(delivery.getAuctionItem().getId());
+        } else {
+            // Buy Now: lock the order row instead of an auction.
+            Order order = requireDeliveryOrder(delivery);
+
+            entityManager.find(
+                    Order.class,
+                    order.getId(),
+                    jakarta.persistence.LockModeType.PESSIMISTIC_WRITE
+            );
+            entityManager.refresh(order);
+        }
+
         entityManager.refresh(delivery);
 
         return delivery;

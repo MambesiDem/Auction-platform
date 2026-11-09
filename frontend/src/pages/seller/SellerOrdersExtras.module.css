@@ -1,0 +1,276 @@
+/* Extra styles for SellerOrders. The existing SellerOrders.module.css is unchanged. */
+
+.notice {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.noticeSuccess {
+    background: var(--green-light);
+    border: 0.5px solid #A7F3D0;
+    color: var(--green-dark);
+}
+
+.noticeError {
+    background: var(--red-light);
+    border: 0.5px solid #FECACA;
+    color: var(--red);
+}
+
+.noticeClose {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    color: inherit;
+}
+
+.panelNote {
+    font-size: 12px;
+    color: #92400E;
+    margin: -4px 0 10px;
+    line-height: 1.5;
+}
+
+.chip {
+    display: inline-block;
+    background: var(--navy);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.share {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green-dark);
+}
+
+.nextStep {
+    padding: 10px 20px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.codeBox {
+    margin: 0 20px 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--green-light);
+    border: 0.5px solid #A7F3D0;
+    text-align: center;
+}
+
+.codeLabel {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--green-dark);
+    margin-bottom: 4px;
+}
+
+.code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    color: var(--navy);
+}
+
+.codeHint {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin-top: 6px;
+}
+
+.supportDetails {
+    margin-top: 24px;
+    background: var(--white);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+}
+
+.supportDetails summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.supportItem {
+    padding: 12px 0;
+    border-bottom: 0.5px solid var(--border-light);
+    font-size: 13px;
+}
+
+.supportItem:last-child {
+    border-bottom: none;
+}
+
+/* ---------- Book collection dialog ---------- */
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+    padding: 16px;
+}
+
+.dialog {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.dialogTitle {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 4px;
+}
+
+.dialogSub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 18px;
+    line-height: 1.5;
+}
+
+.fieldLabel {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.textarea {
+    width: 100%;
+    min-height: 96px;
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+}
+
+.textarea:focus {
+    border-color: var(--navy);
+}
+
+.counter {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 4px;
+}
+
+.check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 12px 0 16px;
+    cursor: pointer;
+}
+
+.check input {
+    margin-top: 3px;
+}
+
+.dialogError {
+    background: var(--red-light);
+    border: 0.5px solid #FECACA;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 14px;
+}
+
+.dialogActions {
+    display: flex;
+    gap: 10px;
+}
+
+.cancelBtn {
+    flex: 1;
+    height: 42px;
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    background: transparent;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.primaryBtn {
+    flex: 2;
+    height: 42px;
+    background: var(--navy);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.primaryBtn:hover:not(:disabled) {
+    background: var(--navy-light);
+}
+
+.cancelBtn:disabled,
+.primaryBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+    .overlay {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .dialog {
+        max-width: none;
+        border-radius: 16px 16px 0 0;
+        padding: 24px 20px 28px;
+    }
+
+    .code {
+        font-size: 24px;
+    }
+}

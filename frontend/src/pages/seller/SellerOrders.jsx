@@ -8,6 +8,7 @@ import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
 import styles from './SellerOrders.module.css';
+import extras from './SellerOrdersExtras.module.css';
 
 const TABS = [
     'All',
@@ -20,13 +21,21 @@ const TABS = [
 const PAYMENT_LABELS = {
     PENDING: '⏳ Awaiting payment confirmation',
     FAILED: 'Payment attempt failed',
-    HELD: '🔒 Payment confirmed',
-    RELEASE_REQUESTED: '⏳ Payout awaiting provider confirmation',
+    HELD: '🔒 Payment confirmed — payout follows delivery',
+    RELEASE_REQUESTED: '⏳ Payout requested — awaiting provider confirmation',
     RELEASED: '✅ Payout confirmed',
     REFUND_REQUESTED: '⏳ Refund awaiting provider confirmation',
-    REFUNDED: '↩️ Refund confirmed',
+    REFUNDED: '↩️ Refunded to the buyer',
     REVIEW_REQUIRED: 'Payment under review — contact support',
 };
+
+const SHARE_STATUSES = ['HELD', 'RELEASE_REQUESTED', 'RELEASED'];
+
+const rand = (value) =>
+    `R${Number(value || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
 
 function getPaymentLabel(status) {
     return PAYMENT_LABELS[status] || 'Payment status unavailable';
@@ -74,6 +83,24 @@ function getOrderDelivery(deliveries, order) {
     );
 }
 
+function nextStep(status) {
+    switch (status) {
+        case 'PENDING':
+            return 'Waiting for a driver to accept this job.';
+        case 'ACCEPTED':
+            return 'A driver has accepted. When they arrive, give them the collection code below and hand over the parcel.';
+        case 'PICKED_UP':
+        case 'IN_TRANSIT':
+            return 'The parcel is with the driver. The buyer confirms receipt with their delivery code.';
+        case 'DELIVERED':
+            return 'Delivered. Your payout follows once the review window ends and the provider confirms it.';
+        case 'CANCELLED':
+            return 'This delivery was cancelled.';
+        default:
+            return null;
+    }
+}
+
 export default function SellerOrders() {
     const { user } = useAuth();
 
@@ -83,6 +110,8 @@ export default function SellerOrders() {
     const [auctions, setAuctions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('All');
+    const [bookTarget, setBookTarget] = useState(null);
+    const [notice, setNotice] = useState(null);
 
     const fetchData = useCallback(async () => {
         try {
@@ -123,31 +152,16 @@ export default function SellerOrders() {
         return () => clearInterval(poll);
     }, [fetchData]);
 
-    const handleCreateDelivery = async (auctionId) => {
-        try {
-            const preparationEvidence = window.prompt(
-                'Before collection, confirm that the item matches the listing. ' +
-                'Record its condition, packaging and photo reference:'
-            );
-
-            if (!preparationEvidence?.trim()) {
-                return;
-            }
-
-            await axiosInstance.post('/api/deliveries', {
-                auctionId,
-                preparationEvidence,
-            });
-
-            fetchData();
-        } catch (err) {
-            alert(
-                err.response?.data?.message ||
-                'Failed to create delivery.'
-            );
-        }
+    const handleBooked = (title) => {
+        setBookTarget(null);
+        setNotice({
+            type: 'success',
+            text: `Collection booked for "${title}". Drivers can now accept this job. You will see the collection code here once one does.`,
+        });
+        fetchData();
     };
 
+    // ----- Items that need the seller to book collection -----
     const closedWithoutDelivery = auctions.filter(auction =>
         !auction.active &&
         auction.winnerEmail &&
@@ -156,6 +170,87 @@ export default function SellerOrders() {
         )
     );
 
+    const auctionRows = closedWithoutDelivery.map(auction => {
+        const payment = latestPayment(payments, auction);
+
+        const canBook =
+            payment?.status === 'HELD' &&
+            ['PREPARATION', 'COLLECTION_PENDING'].includes(
+                auction.orderStatus
+            );
+
+        const nonActionableOrder = [
+            'CANCELLED',
+            'DISPUTED',
+            'RETURNING',
+            'COMPLETED',
+        ].includes(auction.orderStatus);
+
+        const unavailableLabel = nonActionableOrder
+            ? `Order: ${auction.orderStatus.replaceAll('_', ' ')}`
+            : payment
+                ? getPaymentLabel(payment.status)
+                : '⏳ Awaiting buyer payment';
+
+        return {
+            key: `auction-${auction.id}`,
+            kind: 'auction',
+            targetId: auction.id,
+            title: auction.title,
+            imageUrl: auction.imageUrl,
+            meta: `Auction won by ${auction.winnerEmail} · ${rand(auction.currentPrice)}`,
+            canBook,
+            unavailableLabel,
+        };
+    });
+
+    const buyNowRows = orderRecords
+        .filter(order =>
+            order.saleFormat === 'BUY_NOW' &&
+            !getOrderDelivery(deliveries, order) &&
+            !['CANCELLED', 'COMPLETED'].includes(order.status)
+        )
+        .map(order => {
+            const payment = newestPayment(
+                payments.filter(item => item.orderId === order.id)
+            );
+
+            const canBook =
+                payment?.status === 'HELD' &&
+                ['PREPARATION', 'COLLECTION_PENDING'].includes(order.status);
+
+            const nonActionableOrder = ['DISPUTED', 'RETURNING']
+                .includes(order.status);
+
+            const unavailableLabel = nonActionableOrder
+                ? `Order: ${order.status.replaceAll('_', ' ')}`
+                : payment
+                    ? getPaymentLabel(payment.status)
+                    : '⏳ Awaiting buyer payment';
+
+            const quantity = order.quantity || 1;
+            const priceText = quantity > 1
+                ? `${quantity} × ${rand(order.unitPrice)} = ${rand(order.agreedPrice)}`
+                : rand(order.agreedPrice);
+
+            return {
+                key: `order-${order.id}`,
+                kind: 'order',
+                targetId: order.id,
+                title: order.title,
+                imageUrl: null,
+                meta: `Buy Now · ${priceText} · Buyer: ${order.buyerEmail}`,
+                canBook,
+                unavailableLabel,
+            };
+        });
+
+    // Orders that are ready for collection come first.
+    const actionRows = [...buyNowRows, ...auctionRows].sort(
+        (a, b) => Number(b.canBook) - Number(a.canBook)
+    );
+
+    // ----- Delivery list -----
     const getTabStatus = (delivery) => {
         if (delivery.status === 'DELIVERED') {
             return 'Delivered';
@@ -258,45 +353,6 @@ export default function SellerOrders() {
                 <TopBar />
 
                 <div className={styles.content}>
-                    <details style={{ marginBottom: 16 }}>
-                        <summary>
-                            Order records, handover codes and buyer cases
-                        </summary>
-
-                        {orderRecords.map(order => (
-                            <div
-                                key={order.id}
-                                style={{
-                                    padding: 12,
-                                    borderBottom: '1px solid #e5e7eb',
-                                }}
-                            >
-                                <strong>{order.title}</strong>
-                                {' — '}
-                                {order.status.replaceAll('_', ' ')}
-
-                                <OrderTools
-                                    auction={{
-                                        id: order.auctionId,
-                                        orderId: order.id,
-                                        orderStatus: order.status,
-                                    }}
-                                    payment={newestPayment(
-                                        payments.filter(
-                                            payment =>
-                                                payment.orderId === order.id
-                                        )
-                                    )}
-                                    delivery={getOrderDelivery(
-                                        deliveries,
-                                        order
-                                    )}
-                                    refresh={fetchData}
-                                />
-                            </div>
-                        ))}
-                    </details>
-
                     <div className={styles.pageHeader}>
                         <div>
                             <h1 className={styles.pageTitle}>
@@ -304,14 +360,36 @@ export default function SellerOrders() {
                             </h1>
 
                             <p className={styles.pageSubtitle}>
-                                {deliveries.length} order
-                                {deliveries.length !== 1 ? 's' : ''} total
+                                {orderRecords.length} order
+                                {orderRecords.length !== 1 ? 's' : ''} total
                             </p>
                         </div>
                     </div>
 
-                    {/* Auctions without a delivery yet */}
-                    {closedWithoutDelivery.length > 0 && (
+                    {notice && (
+                        <div
+                            className={`${extras.notice} ${
+                                notice.type === 'error'
+                                    ? extras.noticeError
+                                    : extras.noticeSuccess
+                            }`}
+                            role="status"
+                        >
+                            <span>{notice.text}</span>
+
+                            <button
+                                type="button"
+                                className={extras.noticeClose}
+                                aria-label="Dismiss message"
+                                onClick={() => setNotice(null)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Orders that need collection to be booked */}
+                    {actionRows.length > 0 && (
                         <div className={styles.actionNeeded}>
                             <div className={styles.actionNeededHeader}>
                                 <span className={styles.actionNeededIcon}>
@@ -319,88 +397,64 @@ export default function SellerOrders() {
                                 </span>
 
                                 <h3 className={styles.actionNeededTitle}>
-                                    Orders awaiting collection arrangements
+                                    Needs your action
                                     {' — '}
-                                    {closedWithoutDelivery.length}
+                                    {actionRows.length}
                                 </h3>
                             </div>
 
-                            {closedWithoutDelivery.map(auction => {
-                                const payment = latestPayment(
-                                    payments,
-                                    auction
-                                );
+                            <p className={extras.panelNote}>
+                                Prepare and hand over an item only after the
+                                buyer's payment is confirmed.
+                            </p>
 
-                                const paymentReady =
-                                    payment?.status === 'HELD' &&
-                                    [
-                                        'PREPARATION',
-                                        'COLLECTION_PENDING',
-                                    ].includes(auction.orderStatus);
-
-                                const nonActionableOrder = [
-                                    'CANCELLED',
-                                    'DISPUTED',
-                                    'RETURNING',
-                                    'COMPLETED',
-                                ].includes(auction.orderStatus);
-
-                                const unavailableLabel = nonActionableOrder
-                                    ? `Order: ${auction.orderStatus.replaceAll('_', ' ')}`
-                                    : payment
-                                        ? getPaymentLabel(payment.status)
-                                        : '⏳ Awaiting buyer payment';
-
-                                return (
-                                    <div
-                                        key={auction.id}
-                                        className={styles.actionRow}
-                                    >
-                                        {auction.imageUrl ? (
-                                            <img
-                                                src={auction.imageUrl}
-                                                alt={auction.title}
-                                                className={styles.actionImg}
-                                            />
-                                        ) : (
-                                            <div className={styles.actionImgPlaceholder}>
-                                                📦
-                                            </div>
-                                        )}
-
-                                        <div className={styles.actionInfo}>
-                                            <p className={styles.actionTitle}>
-                                                {auction.title}
-                                            </p>
-
-                                            <p className={styles.actionMeta}>
-                                                Won by {auction.winnerEmail}
-                                                {' · '}
-                                                R{auction.currentPrice?.toLocaleString()}
-                                            </p>
+                            {actionRows.map(row => (
+                                <div
+                                    key={row.key}
+                                    className={styles.actionRow}
+                                >
+                                    {row.imageUrl ? (
+                                        <img
+                                            src={row.imageUrl}
+                                            alt={row.title}
+                                            className={styles.actionImg}
+                                        />
+                                    ) : (
+                                        <div className={styles.actionImgPlaceholder}>
+                                            📦
                                         </div>
+                                    )}
 
-                                        <div className={styles.actionRight}>
-                                            {paymentReady ? (
-                                                <button
-                                                    className={styles.createDeliveryBtn}
-                                                    onClick={() =>
-                                                        handleCreateDelivery(
-                                                            auction.id
-                                                        )
-                                                    }
-                                                >
-                                                    🚚 Create delivery
-                                                </button>
-                                            ) : (
-                                                <span className={styles.awaitingPayment}>
-                                                    {unavailableLabel}
-                                                </span>
-                                            )}
-                                        </div>
+                                    <div className={styles.actionInfo}>
+                                        <p className={styles.actionTitle}>
+                                            {row.title}
+                                        </p>
+
+                                        <p className={styles.actionMeta}>
+                                            {row.meta}
+                                        </p>
                                     </div>
-                                );
-                            })}
+
+                                    <div className={styles.actionRight}>
+                                        {row.canBook ? (
+                                            <button
+                                                type="button"
+                                                className={styles.createDeliveryBtn}
+                                                onClick={() => {
+                                                    setNotice(null);
+                                                    setBookTarget(row);
+                                                }}
+                                            >
+                                                🚚 Book collection
+                                            </button>
+                                        ) : (
+                                            <span className={styles.awaitingPayment}>
+                                                {row.unavailableLabel}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
 
@@ -450,9 +504,24 @@ export default function SellerOrders() {
                                     delivery
                                 );
 
+                                const order = delivery.orderId
+                                    ? orderRecords.find(
+                                        record => record.id === delivery.orderId
+                                    )
+                                    : undefined;
+
+                                const isBuyNow = order?.saleFormat === 'BUY_NOW';
+
                                 const deliveryStep = getDeliveryStep(
                                     delivery.status
                                 );
+
+                                const showShare =
+                                    payment &&
+                                    SHARE_STATUSES.includes(payment.status) &&
+                                    Number.isFinite(Number(payment.sellerAmount));
+
+                                const hint = nextStep(delivery.status);
 
                                 return (
                                     <div
@@ -470,6 +539,15 @@ export default function SellerOrders() {
                                                     <h3 className={styles.orderTitle}>
                                                         {delivery.listingTitle ||
                                                             delivery.auctionTitle}
+
+                                                        {isBuyNow && (
+                                                            <span className={extras.chip}>
+                                                                Buy Now
+                                                                {order.quantity > 1
+                                                                    ? ` · ${order.quantity} units`
+                                                                    : ''}
+                                                            </span>
+                                                        )}
                                                     </h3>
 
                                                     <p className={styles.orderMeta}>
@@ -495,9 +573,12 @@ export default function SellerOrders() {
                                                             : 'Payment status unavailable'}
                                                     </span>
 
-                                                    {payment?.status === 'RELEASED' && (
-                                                        <span className={styles.paymentAmount}>
-                                                            R{payment.sellerAmount?.toLocaleString()}
+                                                    {showShare && (
+                                                        <span className={extras.share}>
+                                                            Your share: {rand(payment.sellerAmount)}
+                                                            {Number.isFinite(Number(payment.commissionAmount))
+                                                                ? ` (platform fee ${rand(payment.commissionAmount)})`
+                                                                : ''}
                                                         </span>
                                                     )}
                                                 </div>
@@ -573,10 +654,33 @@ export default function SellerOrders() {
                                             ))}
                                         </div>
 
-                                        {delivery.status === 'PENDING' && (
-                                            <div className={styles.noDriver}>
-                                                🚗 Waiting for a driver to accept this job
+                                        {/* Collection code, shown while a driver is assigned */}
+                                        {delivery.pickupCode && (
+                                            <div className={extras.codeBox}>
+                                                <p className={extras.codeLabel}>
+                                                    Collection code
+                                                </p>
+
+                                                <p className={extras.code}>
+                                                    {delivery.pickupCode}
+                                                </p>
+
+                                                <p className={extras.codeHint}>
+                                                    Give this code only to
+                                                    {delivery.driverEmail
+                                                        ? ` ${delivery.driverEmail}`
+                                                        : ' the assigned driver'}
+                                                    {' '}when they collect the
+                                                    parcel. Do not share it by
+                                                    message or with anyone else.
+                                                </p>
                                             </div>
+                                        )}
+
+                                        {hint && (
+                                            <p className={extras.nextStep}>
+                                                {hint}
+                                            </p>
                                         )}
                                     </div>
                                 );
@@ -584,11 +688,188 @@ export default function SellerOrders() {
                         </div>
                     )}
 
+                    {/* Support, handover codes and buyer cases for every order */}
+                    {orderRecords.length > 0 && (
+                        <details className={extras.supportDetails}>
+                            <summary>
+                                All order records, support and buyer cases
+                            </summary>
+
+                            {orderRecords.map(order => (
+                                <div
+                                    key={order.id}
+                                    className={extras.supportItem}
+                                >
+                                    <strong>{order.title}</strong>
+                                    {order.saleFormat === 'BUY_NOW' && (
+                                        <span className={extras.chip}>
+                                            Buy Now
+                                        </span>
+                                    )}
+                                    {' — '}
+                                    {order.status.replaceAll('_', ' ')}
+
+                                    <OrderTools
+                                        auction={{
+                                            id: order.auctionId,
+                                            orderId: order.id,
+                                            orderStatus: order.status,
+                                        }}
+                                        payment={newestPayment(
+                                            payments.filter(
+                                                payment =>
+                                                    payment.orderId === order.id
+                                            )
+                                        )}
+                                        delivery={getOrderDelivery(
+                                            deliveries,
+                                            order
+                                        )}
+                                        refresh={fetchData}
+                                    />
+                                </div>
+                            ))}
+                        </details>
+                    )}
+
                     <div style={{ height: '72px' }} />
                 </div>
             </div>
 
             <BottomNav role="SELLER" />
+
+            {bookTarget && (
+                <BookCollectionDialog
+                    key={bookTarget.key}
+                    target={bookTarget}
+                    onClose={() => setBookTarget(null)}
+                    onBooked={handleBooked}
+                />
+            )}
+        </div>
+    );
+}
+
+function BookCollectionDialog({ target, onClose, onBooked }) {
+    const [evidence, setEvidence] = useState('');
+    const [confirmed, setConfirmed] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+
+    const trimmed = evidence.trim();
+    const valid = confirmed && trimmed.length >= 10;
+
+    useEffect(() => {
+        const onKey = (event) => {
+            if (event.key === 'Escape' && !busy) onClose();
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [onClose, busy]);
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (busy || !valid) return;
+
+        setBusy(true);
+        setError('');
+
+        try {
+            await axiosInstance.post(
+                '/api/deliveries',
+                target.kind === 'order'
+                    ? { orderId: target.targetId, preparationEvidence: trimmed }
+                    : { auctionId: target.targetId, preparationEvidence: trimmed }
+            );
+
+            onBooked(target.title);
+        } catch (err) {
+            setError(
+                err.response?.data?.message ||
+                'Could not book collection. Please try again.'
+            );
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div
+            className={extras.overlay}
+            onClick={() => { if (!busy) onClose(); }}
+        >
+            <div
+                className={extras.dialog}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="book-collection-title"
+                onClick={event => event.stopPropagation()}
+            >
+                <form onSubmit={handleSubmit}>
+                    <h2 id="book-collection-title" className={extras.dialogTitle}>
+                        Book collection
+                    </h2>
+
+                    <p className={extras.dialogSub}>
+                        {target.title}
+                        <br />
+                        Before a driver collects this parcel, confirm the item
+                        matches the listing and record how it is packed.
+                    </p>
+
+                    <label className={extras.fieldLabel} htmlFor="prep-evidence">
+                        Condition, packaging and photo reference
+                    </label>
+                    <textarea
+                        id="prep-evidence"
+                        className={extras.textarea}
+                        value={evidence}
+                        onChange={event => setEvidence(event.target.value)}
+                        maxLength={2000}
+                        placeholder="e.g. Kettle in original box, no scratches, sealed with tape. Photo: link or reference."
+                        disabled={busy}
+                        autoFocus
+                    />
+                    <p className={extras.counter}>{evidence.length}/2000</p>
+
+                    <label className={extras.check}>
+                        <input
+                            type="checkbox"
+                            checked={confirmed}
+                            onChange={event => setConfirmed(event.target.checked)}
+                            disabled={busy}
+                        />
+                        <span>
+                            I confirm the item matches the listing and is ready
+                            for collection.
+                        </span>
+                    </label>
+
+                    {error && (
+                        <div className={extras.dialogError} role="alert">
+                            {error}
+                        </div>
+                    )}
+
+                    <div className={extras.dialogActions}>
+                        <button
+                            type="button"
+                            className={extras.cancelBtn}
+                            onClick={onClose}
+                            disabled={busy}
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="submit"
+                            className={extras.primaryBtn}
+                            disabled={busy || !valid}
+                        >
+                            {busy ? 'Booking...' : 'Book collection'}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

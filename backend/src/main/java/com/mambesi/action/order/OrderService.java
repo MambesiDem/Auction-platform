@@ -10,10 +10,15 @@ import org.springframework.beans.factory.annotation.Value;
 import java.math.BigDecimal;
 @Service
 public class OrderService {
+
     private final OrderRepository orders;
     private final OrderEventRepository events;
     @Value("${platform.commission}")
     private double platformCommission;
+
+    @Value("${buynow.reservation-minutes:10}")
+    private int reservationMinutes;
+
     public OrderService(OrderRepository orders,OrderEventRepository events){
         this.orders=orders;
         this.events=events;
@@ -49,6 +54,14 @@ public class OrderService {
     @Transactional
     public Order createOrderForBuyNow(ProductListing listing, User buyer,
                                       int quantity) {
+
+        if (orders.existsByBuyerIdAndProductListingIdAndStatus(
+                buyer.getId(), listing.getId(), OrderStatus.AWAITING_PAYMENT)) {
+            throw new IllegalStateException(
+                    "You already have an unpaid order for this item. "
+                            + "Pay for it from My Orders, or wait for it to expire.");
+        }
+
         if (listing.getStatus() != com.mambesi.action.listing.ProductListing.Status.PUBLISHED) {
             throw new IllegalStateException("Listing is not available for purchase.");
         }
@@ -70,7 +83,7 @@ public class OrderService {
         o.setCommissionRate(platformCommission);
         o.setListingTitle(listing.getTitle());
         o.setListingDescription(listing.getDescription());
-        o.setPaymentDeadline(AppTime.now().plusMinutes(15));
+        o.setPaymentDeadline(AppTime.now().plusMinutes(reservationMinutes));
         o.setLastActorEmail("system");
         o.setLastReason("Buy Now order created");
         orders.save(o);

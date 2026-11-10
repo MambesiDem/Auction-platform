@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import axiosInstance from '../../api/axiosInstance';
 import browse from './BuyerBrowse.module.css';
 import styles from './BuyNowListings.module.css';
+import { useNavigate } from 'react-router-dom';
+import { auctionDate } from '../../utils/auctionLifecycle';
 
 const PAGE_SIZE = 24;
 const LOW_STOCK = 5;
@@ -27,9 +29,13 @@ const toCents = (value) => Math.round(Number(value) * 100);
 const pageCount = (data) => data?.totalPages ?? data?.page?.totalPages ?? 1;
 
 const formatTime = (value) => {
-    const date = value ? new Date(value) : null;
+    const date = value ? auctionDate(value) : null;
     if (!date || Number.isNaN(date.getTime())) return null;
-    return date.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-ZA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Africa/Johannesburg',
+    });
 };
 
 export default function BuyNowListings({ search }) {
@@ -328,6 +334,7 @@ export default function BuyNowListings({ search }) {
 }
 
 function BuyDialog({ listing, onClose, onChanged }) {
+    const navigate = useNavigate();
     const stock = listing.stockQuantity;
     const soldOut = stock < 1;
 
@@ -337,8 +344,11 @@ function BuyDialog({ listing, onClose, onChanged }) {
     const [done, setDone] = useState(null);
     const [paying, setPaying] = useState(false);
     const [payError, setPayError] = useState('');
+    const [now, setNow] = useState(() => Date.now());
 
     const busy = submitting || paying;
+    // Once an order exists, the dialog is left on purpose, not by an accidental click.
+    const locked = busy || Boolean(done);
 
     const quantity = Number(qtyText);
     const quantityValid =
@@ -349,13 +359,29 @@ function BuyDialog({ listing, onClose, onChanged }) {
         quantity <= stock;
     const totalCents = quantityValid ? toCents(listing.unitPrice) * quantity : 0;
 
+    // Countdown for the reservation.
+    useEffect(() => {
+        if (!done) return undefined;
+        const timer = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(timer);
+    }, [done]);
+
     useEffect(() => {
         const onKey = (event) => {
-            if (event.key === 'Escape' && !busy) onClose();
+            if (event.key === 'Escape' && !locked) onClose();
         };
         document.addEventListener('keydown', onKey);
         return () => document.removeEventListener('keydown', onKey);
-    }, [onClose, busy]);
+    }, [onClose, locked]);
+
+    const deadlineMs = done ? auctionDate(done.deadline).getTime() : NaN;
+    const hasDeadline = Number.isFinite(deadlineMs);
+    const remainingMs = hasDeadline ? deadlineMs - now : 0;
+    const expired = hasDeadline && remainingMs <= 0;
+    const countdown = hasDeadline && !expired
+        ? `${Math.floor(remainingMs / 60000)}:${String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, '0')}`
+        : null;
+    const deadlineText = done ? formatTime(done.deadline) : null;
 
     const step = (delta) => {
         const base = Number.isInteger(quantity) ? quantity : 1;
@@ -363,47 +389,14 @@ function BuyDialog({ listing, onClose, onChanged }) {
         setQtyText(String(next));
     };
 
-    const handleConfirm = async (event) => {
-        event.preventDefault();
-        if (busy || !quantityValid) return;
-
-        setSubmitting(true);
-        setError('');
-
-        try {
-            const response = await axiosInstance.post(
-                `/api/product-listings/${listing.id}/buy`,
-                { quantity }
-            );
-
-            setDone({
-                orderId: response.data.orderId,
-                quantity,
-                total: response.data.total,
-                deadline: response.data.paymentDeadline,
-            });
-            onChanged();
-        } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                'The order could not be placed. Please check the stock and try again.'
-            );
-            onChanged(); // refresh the stock shown behind the dialog
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // Starts the PayFast checkout for the order that was just created.
-    const handlePay = async () => {
-        if (paying || !done?.orderId) return;
-
+    // Opens the PayFast checkout for an order that has already been reserved.
+    const startPayment = async (orderId) => {
         setPaying(true);
         setPayError('');
 
         try {
             const response = await axiosInstance.post(
-                `/api/payments/initiate-order/${done.orderId}`
+                `/api/payments/initiate-order/${orderId}`
             );
             const target = typeof response.data === 'string' ? response.data.trim() : '';
 
@@ -415,18 +408,55 @@ function BuyDialog({ listing, onClose, onChanged }) {
         } catch (err) {
             setPayError(
                 err.response?.data?.message ||
-                'Payment could not be started. Please try again.'
+                'Payment could not be opened. Please try again.'
             );
             setPaying(false);
         }
     };
 
-    const deadlineText = done ? formatTime(done.deadline) : null;
+    // Step 1 reserves the items and creates the order. Step 2 goes straight to PayFast.
+    const handleConfirm = async (event) => {
+        event.preventDefault();
+        if (busy || !quantityValid) return;
+
+        setSubmitting(true);
+        setError('');
+
+        let reserved;
+
+        try {
+            const response = await axiosInstance.post(
+                `/api/product-listings/${listing.id}/buy`,
+                { quantity }
+            );
+
+            reserved = {
+                orderId: response.data.orderId,
+                quantity,
+                total: response.data.total,
+                deadline: response.data.paymentDeadline,
+            };
+
+            setDone(reserved);
+            onChanged();
+        } catch (err) {
+            setError(
+                err.response?.data?.message ||
+                'The order could not be placed. Please check the stock and try again.'
+            );
+            onChanged(); // refresh the stock shown behind the dialog
+            setSubmitting(false);
+            return;
+        }
+
+        setSubmitting(false);
+        await startPayment(reserved.orderId);
+    };
 
     return (
         <div
             className={styles.overlay}
-            onClick={() => { if (!busy) onClose(); }}
+            onClick={() => { if (!locked) onClose(); }}
         >
             <div
                 className={styles.dialog}
@@ -438,7 +468,9 @@ function BuyDialog({ listing, onClose, onChanged }) {
                 {done ? (
                     <div className={styles.centered}>
                         <div className={styles.successIcon} aria-hidden="true">✓</div>
-                        <h2 id="buy-now-title" className={styles.dialogTitle}>Order placed</h2>
+                        <h2 id="buy-now-title" className={styles.dialogTitle}>
+                            Items reserved
+                        </h2>
 
                         <dl className={styles.summary}>
                             <div className={styles.summaryRow}>
@@ -453,17 +485,33 @@ function BuyDialog({ listing, onClose, onChanged }) {
                                 <dt>Total</dt>
                                 <dd>{rand(done.total)}</dd>
                             </div>
-                            {deadlineText && (
+                            {deadlineText && !expired && (
                                 <div className={styles.summaryRow}>
                                     <dt>Pay by</dt>
                                     <dd>{deadlineText}</dd>
                                 </div>
                             )}
+                            {countdown && (
+                                <div className={styles.summaryRow}>
+                                    <dt>Time left</dt>
+                                    <dd>{countdown}</dd>
+                                </div>
+                            )}
                         </dl>
 
-                        <p className={styles.notice}>
-                            Your items are reserved. Pay now to confirm the order.
-                        </p>
+                        {expired ? (
+                            <div className={styles.dialogError} role="alert">
+                                This reservation has expired. The items will be
+                                released shortly. You can place a new order.
+                            </div>
+                        ) : (
+                            <p className={styles.notice}>
+                                Your items are reserved
+                                {deadlineText ? ` until ${deadlineText}` : ' for a short time'}.
+                                If the order is not paid by then, it is cancelled
+                                and the items are released.
+                            </p>
+                        )}
 
                         {payError && (
                             <div className={styles.dialogError} role="alert">
@@ -472,22 +520,36 @@ function BuyDialog({ listing, onClose, onChanged }) {
                         )}
 
                         <div className={styles.dialogActions}>
-                            <button
-                                type="button"
-                                className={styles.cancelBtn}
-                                onClick={onClose}
-                                disabled={paying}
-                            >
-                                Not now
-                            </button>
-                            <button
-                                type="button"
-                                className={styles.primaryBtn}
-                                onClick={handlePay}
-                                disabled={paying}
-                            >
-                                {paying ? 'Opening PayFast...' : `Pay now · ${rand(done.total)}`}
-                            </button>
+                            {expired ? (
+                                <button
+                                    type="button"
+                                    className={styles.primaryBtn}
+                                    onClick={onClose}
+                                >
+                                    Close
+                                </button>
+                            ) : (
+                                <>
+                                    <button
+                                        type="button"
+                                        className={styles.cancelBtn}
+                                        onClick={() => navigate('/buyer/orders')}
+                                        disabled={paying}
+                                    >
+                                        Pay later in Orders
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={styles.primaryBtn}
+                                        onClick={() => startPayment(done.orderId)}
+                                        disabled={paying}
+                                    >
+                                        {paying
+                                            ? 'Opening PayFast...'
+                                            : `Pay now · ${rand(done.total)}`}
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -528,7 +590,7 @@ function BuyDialog({ listing, onClose, onChanged }) {
                                         className={styles.qtyBtn}
                                         aria-label="Decrease quantity"
                                         onClick={() => step(-1)}
-                                        disabled={submitting || !(quantity > 1)}
+                                        disabled={busy || !(quantity > 1)}
                                     >
                                         −
                                     </button>
@@ -542,7 +604,7 @@ function BuyDialog({ listing, onClose, onChanged }) {
                                         step="1"
                                         value={qtyText}
                                         onChange={event => setQtyText(event.target.value)}
-                                        disabled={submitting}
+                                        disabled={busy}
                                         autoFocus
                                     />
                                     <button
@@ -550,7 +612,7 @@ function BuyDialog({ listing, onClose, onChanged }) {
                                         className={styles.qtyBtn}
                                         aria-label="Increase quantity"
                                         onClick={() => step(1)}
-                                        disabled={submitting || !(quantity < stock)}
+                                        disabled={busy || !(quantity < stock)}
                                     >
                                         +
                                     </button>
@@ -584,8 +646,9 @@ function BuyDialog({ listing, onClose, onChanged }) {
                         </p>
 
                         <p className={styles.notice}>
-                            Confirming reserves the items for you. You will have
-                            15 minutes to pay.
+                            Continuing reserves the items for you for a limited
+                            time while you pay. If the order is not paid in time,
+                            it is cancelled and the items are released.
                         </p>
 
                         {error && (
@@ -599,20 +662,20 @@ function BuyDialog({ listing, onClose, onChanged }) {
                                 type="button"
                                 className={styles.cancelBtn}
                                 onClick={onClose}
-                                disabled={submitting}
+                                disabled={busy}
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 className={styles.primaryBtn}
-                                disabled={submitting || !quantityValid}
+                                disabled={busy || !quantityValid}
                             >
                                 {submitting
-                                    ? 'Placing order...'
+                                    ? 'Reserving your items...'
                                     : quantityValid
-                                        ? `Confirm · ${rand(totalCents / 100)}`
-                                        : 'Confirm purchase'}
+                                        ? `Continue to payment · ${rand(totalCents / 100)}`
+                                        : 'Continue to payment'}
                             </button>
                         </div>
                     </form>

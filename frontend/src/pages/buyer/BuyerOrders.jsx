@@ -10,8 +10,50 @@ import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
 import styles from './BuyerOrders.module.css';
+import extras from './BuyerOrdersExtras.module.css';
 
 const TABS = ['All', 'Under Review', 'Awaiting Payment', 'Payment Confirmed', 'In Delivery', 'Delivered', 'Cancelled'];
+
+const rand = (value) =>
+    `R${Number(value || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+
+function newestPayment(list) {
+    return [...list].sort((a, b) => {
+        const timeDifference =
+            new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime();
+
+        return timeDifference ||
+            String(b.id).localeCompare(String(a.id));
+    })[0];
+}
+
+function buyerNextStep(delivery, payment) {
+    if (delivery) {
+        switch (delivery.status) {
+            case 'PENDING':
+                return 'The seller has booked collection. Waiting for a driver to accept.';
+            case 'ACCEPTED':
+                return 'A driver has accepted and will collect your parcel from the seller.';
+            case 'PICKED_UP':
+            case 'IN_TRANSIT':
+                return 'Your parcel is on its way. Give the delivery code to the driver only after you have received it.';
+            case 'DELIVERED':
+                return 'Delivered. If something is not right, report a problem below.';
+            default:
+                return null;
+        }
+    }
+
+    if (payment?.status === 'HELD') {
+        return 'Payment confirmed. The seller is preparing your order and will book a driver.';
+    }
+
+    return null;
+}
 
 export default function BuyerOrders() {
     const { user } = useAuth();
@@ -23,6 +65,8 @@ export default function BuyerOrders() {
     const [offers, setOffers] = useState([]);
     const [activeTab, setActiveTab] = useState('All');
     const [paymentTimers, setPaymentTimers] = useState({});
+    const [notice, setNotice] = useState(null);
+    const [payingId, setPayingId] = useState(null);
 
     const fetchData = useCallback(async () => {
         const offerRequest = axiosInstance.get('/api/auctions/offers').then(r => setOffers(r.data)).catch(e => console.error('Offers unavailable', e));
@@ -35,9 +79,22 @@ export default function BuyerOrders() {
             ]);
             setWins(orderRecordsRes.data.map(o => {
                 const current = winsRes.data.find(a => a.orderId === o.id);
-                return { ...(current || {}), id: o.auctionId, orderId: o.id, title: o.title, description: o.description,
-                    currentPrice: o.agreedPrice, active: false, orderStatus: o.status,
-                    paymentDeadline: o.paymentDeadline, canPay: current?.canPay === true, paymentEligibility: current?.paymentEligibility };
+                return {
+                    ...(current || {}),
+                    id: o.auctionId,
+                    orderId: o.id,
+                    title: o.title,
+                    description: o.description,
+                    currentPrice: o.agreedPrice,
+                    active: false,
+                    orderStatus: o.status,
+                    paymentDeadline: o.paymentDeadline,
+                    canPay: current?.canPay === true,
+                    paymentEligibility: current?.paymentEligibility,
+                    isBuyNow: o.saleFormat === 'BUY_NOW',
+                    quantity: o.quantity,
+                    unitPrice: o.unitPrice,
+                };
             }));
             setPayments(paymentsRes.data);
             setDeliveries(deliveriesRes.data);
@@ -51,34 +108,73 @@ export default function BuyerOrders() {
 
     const clock = useAuctionSync(fetchData);
 
-
-
-    // Payment deadline timers
+    // Payment deadline timers, keyed by order so Buy Now orders do not share one.
     useEffect(() => {
-            const updated = {};
-            wins.forEach(a => {
-                if (!a.paymentDeadline) return;
-                const diff = auctionDate(a.paymentDeadline) - new Date();
-                updated[a.id] = diff <= 0 ? 'EXPIRED'
-                    : `${Math.floor(diff / 60000)}:${String(Math.floor((diff % 60000) / 1000)).padStart(2, '0')}`;
-            });
-            setPaymentTimers(updated);
+        const updated = {};
+        wins.forEach(a => {
+            if (!a.paymentDeadline) return;
+            const diff = auctionDate(a.paymentDeadline) - new Date();
+            updated[a.orderId] = diff <= 0 ? 'EXPIRED'
+                : `${Math.floor(diff / 60000)}:${String(Math.floor((diff % 60000) / 1000)).padStart(2, '0')}`;
+        });
+        setPaymentTimers(updated);
     }, [wins, clock]);
 
+    // Auction cancellation works by auction id. Buy Now cancellation is not available online yet.
     const handleCancelPayment = async (auctionId) => {
         if (!window.confirm('Cancel before pickup? Delivery will stop and a refund will be requested. It is confirmed only after the provider processes it.')) return;
         try {
             await axiosInstance.put(`/api/payments/${auctionId}/cancel`);
+            setNotice({
+                type: 'success',
+                text: 'Cancellation requested. Your refund is confirmed only after the provider processes it.',
+            });
             fetchData();
         } catch (err) {
-            alert(err.response?.data?.message || 'Failed to cancel order.');
+            setNotice({
+                type: 'error',
+                text: err.response?.data?.message || 'Failed to cancel order.',
+            });
+        }
+    };
+
+    // Starts the PayFast checkout for a Buy Now order.
+    const handlePayBuyNow = async (orderId) => {
+        if (payingId) return;
+
+        setPayingId(orderId);
+        setNotice(null);
+
+        try {
+            const response = await axiosInstance.post(`/api/payments/initiate-order/${orderId}`);
+            const target = typeof response.data === 'string' ? response.data.trim() : '';
+
+            if (!/^https:\/\//i.test(target)) {
+                throw new Error('Unexpected payment response');
+            }
+
+            window.location.assign(target);
+        } catch (err) {
+            setNotice({
+                type: 'error',
+                text: err.response?.data?.message || 'Payment could not be started. Please try again.',
+            });
+            setPayingId(null);
         }
     };
 
     // Build combined order objects
     const orders = wins.map(auction => {
-        const payment = latestPayment(payments, auction);
-        const delivery = deliveries.find(d => d.auctionId === auction.id);
+        const payment = auction.isBuyNow
+            ? newestPayment(payments.filter(p => p.orderId === auction.orderId))
+            : latestPayment(payments, auction);
+
+        // Match the delivery by order. The auction fallback is only for old deliveries without an order.
+        const delivery = deliveries.find(d => d.orderId === auction.orderId)
+            || (auction.id
+                ? deliveries.find(d => !d.orderId && d.auctionId === auction.id)
+                : undefined);
+
         return { auction, payment, delivery };
     });
 
@@ -93,6 +189,17 @@ export default function BuyerOrders() {
         if (payment.status === 'HELD') return 'Payment Confirmed';
         if (['RELEASE_REQUESTED','RELEASED'].includes(payment.status)) return 'Delivered';
         return 'Awaiting Payment';
+    };
+
+    // Auction orders use the server's payment eligibility. Buy Now orders are checked here,
+    // and the server still refuses payment that is not allowed.
+    const isPayable = (auction, payment) => {
+        if (!auction.isBuyNow) return canPayForAuction(auction, payment);
+
+        return auction.orderStatus === 'AWAITING_PAYMENT'
+            && Boolean(auction.paymentDeadline)
+            && Date.now() < auctionDate(auction.paymentDeadline).getTime()
+            && (!payment || ['PENDING', 'FAILED'].includes(payment.status));
     };
 
     const filtered = activeTab === 'All'
@@ -135,6 +242,7 @@ export default function BuyerOrders() {
 
                 <div className={styles.content}>
                     <RunnerUpOffers offers={offers} refresh={fetchData} />
+
                     <div className={styles.pageHeader}>
                         <div>
                             <h1 className={styles.pageTitle}>My Orders</h1>
@@ -143,6 +251,25 @@ export default function BuyerOrders() {
                             </p>
                         </div>
                     </div>
+
+                    {notice && (
+                        <div
+                            className={`${extras.notice} ${
+                                notice.type === 'error' ? extras.noticeError : extras.noticeSuccess
+                            }`}
+                            role="status"
+                        >
+                            <span>{notice.text}</span>
+                            <button
+                                type="button"
+                                className={extras.noticeClose}
+                                aria-label="Dismiss message"
+                                onClick={() => setNotice(null)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
 
                     {/* Tabs */}
                     <div className={styles.tabs}>
@@ -169,47 +296,66 @@ export default function BuyerOrders() {
                             <h3 className={styles.emptyTitle}>No orders here</h3>
                             <p className={styles.emptySub}>
                                 {activeTab === 'All'
-                                    ? "You haven't won any auctions yet."
+                                    ? "You don't have any orders yet."
                                     : `No orders with status "${activeTab}".`}
                             </p>
-                            <button
-                                className={styles.browseBtn}
-                                onClick={() => navigate('/buyer/browse')}
-                            >
-                                Browse auctions
-                            </button>
+                            <div className={extras.emptyButtons}>
+                                <button
+                                    className={styles.browseBtn}
+                                    onClick={() => navigate('/buyer/browse')}
+                                >
+                                    Browse auctions
+                                </button>
+                                <button
+                                    className={extras.secondaryBtn}
+                                    onClick={() => navigate('/buyer/browse?mode=buy-now')}
+                                >
+                                    Browse Buy Now
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <div className={styles.ordersList}>
                             {filtered.map(({ auction, payment, delivery }) => {
                                 const status = getOrderStatus({ auction, payment, delivery });
-                                const paymentTimer = paymentTimers[auction.id];
+                                const paymentTimer = paymentTimers[auction.orderId];
                                 const paymentPending = !payment || ['PENDING', 'FAILED'].includes(payment.status);
-                                const canPay = canPayForAuction(auction, payment);
+                                const canPay = isPayable(auction, payment);
                                 const deliveryStep = delivery ? getDeliveryStep(delivery.status) : -1;
-                                const canCancel = payment?.status === 'HELD' && (
-                                    !delivery ||
+                                const beforePickup = !delivery ||
                                     delivery.status === 'PENDING' ||
-                                    delivery.status === 'ACCEPTED'
-                                );
+                                    delivery.status === 'ACCEPTED';
+                                const canCancel = !auction.isBuyNow && payment?.status === 'HELD' && beforePickup;
+                                const buyNowCancelNote = auction.isBuyNow && payment?.status === 'HELD' && beforePickup;
+                                const quantity = auction.quantity || 1;
+                                const priceText = auction.isBuyNow && quantity > 1
+                                    ? `${quantity} × ${rand(auction.unitPrice)} = ${rand(auction.currentPrice)}`
+                                    : rand(auction.currentPrice);
+                                const hint = buyerNextStep(delivery, payment);
+                                const paying = payingId === auction.orderId;
 
                                 return (
-                                    <div key={auction.orderId || auction.id} className={styles.orderCard}>
+                                    <div key={auction.orderId} className={styles.orderCard}>
                                         {/* Order header */}
                                         <div className={styles.orderHeader}>
                                             <div className={styles.orderHeaderLeft}>
-                                                {auction.imageUrl && (
+                                                {auction.imageUrl ? (
                                                     <img
                                                         src={auction.imageUrl}
                                                         alt={auction.title}
                                                         className={styles.orderImage}
                                                     />
+                                                ) : (
+                                                    <div className={extras.placeholder}>📦</div>
                                                 )}
                                                 <div>
-                                                    <h3 className={styles.orderTitle}>{auction.title}</h3>
-                                                    <p className={styles.orderPrice}>
-                                                        R{auction.currentPrice?.toLocaleString()}
-                                                    </p>
+                                                    <h3 className={styles.orderTitle}>
+                                                        {auction.title}
+                                                        <span className={`${extras.chip} ${auction.isBuyNow ? '' : extras.chipAuction}`}>
+                                                            {auction.isBuyNow ? 'Buy Now' : 'Auction'}
+                                                        </span>
+                                                    </h3>
+                                                    <p className={styles.orderPrice}>{priceText}</p>
                                                 </div>
                                             </div>
                                             <span className={`${styles.statusBadge} ${getStatusColor(status)}`}>
@@ -221,12 +367,21 @@ export default function BuyerOrders() {
                                         {canPay && (
                                             <div className={styles.urgentBanner}>
                                                 <span>⏱</span>
-                                                <span>Pay within <strong>{paymentTimer || 'the deadline'}</strong> before the deadline</span>
+                                                <span>
+                                                    Pay within <strong>{paymentTimer || 'the deadline'}</strong>
+                                                    {auction.isBuyNow ? ' to complete your order' : ' before the deadline'}
+                                                </span>
                                                 <button
                                                     className={styles.payNowBtn}
-                                                    onClick={() => navigate(`/payment/${auction.id}`)}
+                                                    disabled={paying}
+                                                    style={{ opacity: paying ? 0.6 : 1, cursor: paying ? 'not-allowed' : 'pointer' }}
+                                                    onClick={() => (
+                                                        auction.isBuyNow
+                                                            ? handlePayBuyNow(auction.orderId)
+                                                            : navigate(`/payment/${auction.id}`)
+                                                    )}
                                                 >
-                                                    Pay Now
+                                                    {paying ? 'Opening PayFast...' : 'Pay Now'}
                                                 </button>
                                             </div>
                                         )}
@@ -242,7 +397,7 @@ export default function BuyerOrders() {
                                             <div className={styles.paymentDetails}>
                                                 <div className={styles.paymentRow}>
                                                     <span className={styles.paymentLabel}>Total paid</span>
-                                                    <span className={styles.paymentValue}>R{payment.totalAmount?.toLocaleString()}</span>
+                                                    <span className={styles.paymentValue}>{rand(payment.totalAmount)}</span>
                                                 </div>
                                                 <div className={styles.paymentRow}>
                                                     <span className={styles.paymentLabel}>Status</span>
@@ -259,7 +414,20 @@ export default function BuyerOrders() {
                                             </div>
                                         )}
 
+                                        {/* Delivery code: the server only sends it while the parcel is in transit */}
+                                        {delivery?.deliveryCode && (
+                                            <div className={extras.codeBox}>
+                                                <p className={extras.codeLabel}>Your delivery code</p>
+                                                <p className={extras.code}>{delivery.deliveryCode}</p>
+                                                <p className={extras.codeHint}>
+                                                    Give this code to the driver only after you have received your
+                                                    parcel and checked it. Do not share it earlier or by message.
+                                                </p>
+                                            </div>
+                                        )}
+
                                         <OrderTools auction={auction} payment={payment} delivery={delivery} refresh={fetchData} />
+
                                         {/* Delivery tracker */}
                                         {delivery && (
                                             <div className={styles.deliveryTracker}>
@@ -298,12 +466,7 @@ export default function BuyerOrders() {
                                             </div>
                                         )}
 
-                                        {/* No delivery yet */}
-                                        {!delivery && payment?.status === 'HELD' && (
-                                            <div className={styles.noDelivery}>
-                                                📦 Waiting for seller to create delivery
-                                            </div>
-                                        )}
+                                        {hint && <p className={extras.nextStep}>{hint}</p>}
 
                                         {/* Actions */}
                                         {canCancel && (
@@ -315,6 +478,13 @@ export default function BuyerOrders() {
                                                     Cancel order
                                                 </button>
                                             </div>
+                                        )}
+
+                                        {buyNowCancelNote && (
+                                            <p className={extras.cancelNote}>
+                                                To cancel this Buy Now order before pickup, contact support.
+                                                Online cancellation is not available for Buy Now yet.
+                                            </p>
                                         )}
                                     </div>
                                 );

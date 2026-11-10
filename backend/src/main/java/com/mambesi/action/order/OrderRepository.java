@@ -29,6 +29,19 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     })
     List<Order> findByBuyerIdOrderByCreatedAtDesc(UUID id);
 
+    boolean existsByBuyerIdAndProductListingIdAndStatus(
+            UUID buyerId, UUID listingId, OrderStatus status);
+
+    @Query("select o.id from Order o "
+            + "where o.status = :status "
+            + "and o.auctionItem is null "
+            + "and o.productListing is not null "
+            + "and o.paymentDeadline <= :now "
+            + "order by o.paymentDeadline")
+    List<UUID> findExpiredBuyNowOrderIds(
+            @Param("status") OrderStatus status,
+            @Param("now") LocalDateTime now);
+
     default List<Order> findByBuyerId(UUID id) {
         return findByBuyerIdOrderByCreatedAtDesc(id);
     }

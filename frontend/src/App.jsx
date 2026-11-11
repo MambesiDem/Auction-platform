@@ -19,10 +19,14 @@ import SellerHome from './pages/seller/SellerHome';
 import SellerListings from './pages/seller/SellerListings';
 import SellerOrders from './pages/seller/SellerOrders';
 import SellerAnalytics from './pages/seller/SellerAnalytics';
+import DriverHome from './pages/driver/DriverHome';
+import DriverJobs from './pages/driver/DriverJobs';
+import DriverDeliveries from './pages/driver/DriverDeliveries';
+import DriverSoon from './pages/driver/DriverSoon';
 
 // const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
 //const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
-const DriverDashboard = lazy(() => import('./pages/driver/DriverDashboard'));
+//const DriverDashboard = lazy(() => import('./pages/driver/DriverDashboard'));
 const AdminDashboard  = lazy(() => import('./pages/admin/AdminDashboard'));
 
 export default function App() {
@@ -141,7 +145,38 @@ export default function App() {
                         {/* Driver only */}
                         <Route path="/driver/dashboard" element={
                             <ProtectedRoute allowedRoles={['DRIVER']}>
-                                <DriverDashboard />
+                                <DriverHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/driver/jobs" element={
+                            <ProtectedRoute allowedRoles={['DRIVER']}>
+                                <DriverJobs />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/driver/deliveries" element={
+                            <ProtectedRoute allowedRoles={['DRIVER']}>
+                                <DriverDeliveries />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/driver/earnings" element={
+                            <ProtectedRoute allowedRoles={['DRIVER']}>
+                                <DriverSoon
+                                    title="Earnings"
+                                    text="Driver pay is not part of this test version yet. Pay for each job will appear here once delivery pricing is set up."
+                                />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/driver/profile" element={
+                            <ProtectedRoute allowedRoles={['DRIVER']}>
+                                <BuyerProfile />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/driver/settings" element={
+                            <ProtectedRoute allowedRoles={['DRIVER']}>
+                                <DriverSoon
+                                    title="Settings"
+                                    text="Account settings are coming. You can change your name and password under Profile."
+                                />
                             </ProtectedRoute>
                         } />
 

@@ -143,7 +143,7 @@ export default function DriverDashboard() {
                         pendingJobs.map(job => (
                             <div key={job.id} className={styles.row}>
                                 <div>
-                                    <p className={styles.rowTitle}>{job.auctionTitle}</p>
+                                    <p className={styles.rowTitle}>{job.listingTitle || job.auctionTitle}</p>
                                     <p className={styles.rowMeta}>
                                         Seller: {job.sellerEmail} &middot; Buyer: {job.buyerEmail}
                                     </p>
@@ -185,7 +185,7 @@ export default function DriverDashboard() {
                                 <div key={delivery.id} className={styles.row}>
                                     <div>
                                         <p className={styles.rowTitle}>
-                                            {delivery.auctionTitle}
+                                            {delivery.listingTitle || delivery.auctionTitle}
                                         </p>
                                         <p className={styles.rowMeta}>
                                             Buyer: {delivery.buyerEmail} &middot;

@@ -8,6 +8,8 @@ import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.mambesi.action.seller.SellerProfile;
+import com.mambesi.action.seller.SellerProfileService;
 
 import java.util.List;
 import java.util.UUID;
@@ -17,14 +19,15 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final SellerProfileService sellerProfiles;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, SellerProfileService sellerProfiles) {
         this.userService = userService;
+        this.sellerProfiles = sellerProfiles;
     }
 
     @PostMapping("/register")
     public UserResponse register(@Valid @RequestBody UserRequest request) {
-
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
@@ -32,6 +35,11 @@ public class UserController {
         user.setRole(request.getRole());
 
         User savedUser = userService.registerUser(user);
+
+        // Every seller account gets a seller profile. The type choice at sign-up comes in change 1D.
+        if (savedUser.getRole() == Role.SELLER) {
+            sellerProfiles.ensureProfile(savedUser, SellerProfile.Type.INDIVIDUAL);
+        }
 
         return new UserResponse(
                 savedUser.getId(),

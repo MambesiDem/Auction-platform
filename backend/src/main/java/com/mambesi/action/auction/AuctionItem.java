@@ -1,5 +1,6 @@
 package com.mambesi.action.auction;
 
+import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.user.User;
 import jakarta.persistence.*;
 
@@ -52,6 +53,10 @@ public class AuctionItem {
     private User owner;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_profile_id")
+    private SellerProfile sellerProfile;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "winner_id")
     private User winner;
 
@@ -69,6 +74,7 @@ public class AuctionItem {
 
     @Column
     private java.math.BigDecimal reservePrice;
+
 
     @PrePersist
     protected void onCreate() {
@@ -193,4 +199,7 @@ public class AuctionItem {
     public void setReservePrice(Double reservedPrice) {
         this.reservePrice = reservedPrice == null || reservedPrice == 0 ? null : com.mambesi.action.common.Money.value(reservedPrice);
     }
+
+    public SellerProfile getSellerProfile() { return sellerProfile; }
+    public void setSellerProfile(SellerProfile sellerProfile) { this.sellerProfile = sellerProfile; }
 }

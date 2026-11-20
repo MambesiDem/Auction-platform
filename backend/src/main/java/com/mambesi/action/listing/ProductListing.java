@@ -1,5 +1,6 @@
 package com.mambesi.action.listing;
 
+import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.user.User;
 import jakarta.persistence.*;
 
@@ -33,6 +34,10 @@ public class ProductListing {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "seller_id", nullable = false, updatable = false)
     private User seller;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_profile_id")
+    private SellerProfile sellerProfile;
 
     @Column(nullable = false, length = 200)
     private String title;
@@ -145,6 +150,9 @@ public class ProductListing {
     public void setStatus(Status status) {
         this.status = status;
     }
+
+    public SellerProfile getSellerProfile() { return sellerProfile; }
+    public void setSellerProfile(SellerProfile sellerProfile) { this.sellerProfile = sellerProfile; }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;

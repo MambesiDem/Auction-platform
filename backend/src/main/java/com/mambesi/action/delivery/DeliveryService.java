@@ -91,6 +91,7 @@ public class DeliveryService {
         delivery.setAuctionItem(auction);
         delivery.setBuyer(order.getBuyer());
         delivery.setSeller(auction.getOwner());
+        delivery.setSellerProfile(auction.getSellerProfile());
         delivery.setPreparationEvidence(evidence);
         delivery.setPickupCode(code());
         delivery.setDeliveryCode(code());
@@ -159,6 +160,7 @@ public class DeliveryService {
         delivery.setOrder(order);
         delivery.setBuyer(order.getBuyer());
         delivery.setSeller(order.getSeller());
+        delivery.setSellerProfile(order.getSellerProfile());
         delivery.setPreparationEvidence(evidence);
         delivery.setPickupCode(code());
         delivery.setDeliveryCode(code());

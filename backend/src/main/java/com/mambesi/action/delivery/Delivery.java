@@ -1,6 +1,7 @@
 package com.mambesi.action.delivery;
 
 import com.mambesi.action.auction.AuctionItem;
+import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.user.User;
 import jakarta.persistence.*;
 import com.mambesi.action.order.Order;
@@ -63,6 +64,10 @@ public class Delivery {
     @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_profile_id")
+    private SellerProfile sellerProfile;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeliveryStatus status;
@@ -92,6 +97,9 @@ public class Delivery {
 
     public User getDriver() { return driver; }
     public void setDriver(User driver) { this.driver = driver; }
+
+    public SellerProfile getSellerProfile() { return sellerProfile; }
+    public void setSellerProfile(SellerProfile sellerProfile) { this.sellerProfile = sellerProfile; }
 
     public User getBuyer() { return buyer; }
     public void setBuyer(User buyer) { this.buyer = buyer; }

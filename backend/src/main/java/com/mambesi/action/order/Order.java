@@ -4,6 +4,7 @@ import com.mambesi.action.auction.AuctionItem;
 import com.mambesi.action.common.AppTime;
 import com.mambesi.action.common.Money;
 import com.mambesi.action.listing.ProductListing;
+import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.user.User;
 import jakarta.persistence.*;
 
@@ -45,6 +46,10 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seller_id")
     private User seller;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_profile_id")
+    private SellerProfile sellerProfile;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -175,6 +180,9 @@ public class Order {
     public void setStatus(OrderStatus status) {
         this.status = status;
     }
+
+    public SellerProfile getSellerProfile() { return sellerProfile; }
+    public void setSellerProfile(SellerProfile sellerProfile) { this.sellerProfile = sellerProfile; }
 
     public double getCommissionRate() {
         return commissionRate;

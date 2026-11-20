@@ -109,6 +109,7 @@ public class PaymentService {
         payment.setOrder(order);
         payment.setBuyer(order.getBuyer());
         payment.setSeller(seller);
+        payment.setSellerProfile(order.getSellerProfile());
         payment.setTotalAmount(order.getAgreedPrice());
 
         var fee = Money.fee(order.getAgreedPrice(), order.getCommissionRate());
@@ -225,6 +226,7 @@ public class PaymentService {
             extra.setAuctionItem(payment.getAuctionItem());
             extra.setBuyer(payment.getBuyer());
             extra.setSeller(payment.getSeller());
+            extra.setSellerProfile(payment.getSellerProfile());
             extra.setTotalAmount(payment.getTotalAmount());
             extra.setCommissionAmount(0);
             extra.setSellerAmount(0);

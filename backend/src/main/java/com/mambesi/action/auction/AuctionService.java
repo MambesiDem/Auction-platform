@@ -9,9 +9,12 @@ import com.mambesi.action.common.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.util.*;
+import com.mambesi.action.seller.SellerProfile;
+import com.mambesi.action.seller.SellerProfileService;
 @Service
 public class AuctionService {
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
@@ -62,6 +65,8 @@ public class AuctionService {
         a.setExtensionDurationMinutes(3);
         a.setCommissionRate(commission);
         a.setOwner(user(owner));
+        if(a.getSellerProfile()==null)
+            a.setSellerProfile(sellerProfiles.ensureProfile(user(owner),SellerProfile.Type.INDIVIDUAL));
         a.setActive(true);
         AuctionItem saved=auctions.save(a);
         AfterCommit.run(()->messages.convertAndSend("/topic/auction-updated",saved.getId().toString()));return saved;
@@ -128,9 +133,19 @@ public class AuctionService {
     @Transactional
     public AuctionItem reopenAuction(UUID id,String owner){
         AuctionItem old=lock(id);requireOwner(old,owner);
-        if(old.isActive() || old.getWinner()!=null) throw new IllegalArgumentException("Only a closed auction without a winner can be relisted.");
+        if(old.isActive() || old.getWinner()!=null)
+            throw new IllegalArgumentException("Only a closed auction without a winner can be relisted.");
         // New identity and empty bid history; the old auction remains untouched.
-        AuctionItem a=new AuctionItem();a.setTitle(old.getTitle());a.setDescription(old.getDescription());a.setImageUrl(old.getImageUrl());a.setStartingPrice(old.getStartingPrice());a.setReservePrice(old.getReservePrice());a.setStartTime(AppTime.now().plusMinutes(1));a.setEndTime(AppTime.now().plusHours(24));return createAuction(a,owner);
+        AuctionItem a=new AuctionItem();
+        a.setTitle(old.getTitle());
+        a.setDescription(old.getDescription());
+        a.setImageUrl(old.getImageUrl());
+        a.setStartingPrice(old.getStartingPrice());
+        a.setReservePrice(old.getReservePrice());
+        a.setStartTime(AppTime.now().plusMinutes(1));
+        a.setEndTime(AppTime.now().plusHours(24));
+        a.setSellerProfile(old.getSellerProfile());
+        return createAuction(a,owner);
     }
     @Transactional
     public void expirePaymentAndReassign(UUID id){
@@ -181,7 +196,10 @@ public class AuctionService {
     private List<Order> ordersForAuction(UUID id){
         return orderRepository().findByAuctionItemIdIn(List.of(id));
     }
-    @org.springframework.beans.factory.annotation.Autowired private OrderRepository orderRepository;
+    @Autowired
+    private OrderRepository orderRepository;
+    @Autowired
+    private SellerProfileService sellerProfiles;
     private OrderRepository orderRepository(){return orderRepository;}
     @Transactional public RunnerUpOffer respondToOffer(UUID offerId,String buyer,boolean accept){
         RunnerUpOffer reference=offers.findById(offerId)

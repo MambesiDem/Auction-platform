@@ -34,6 +34,7 @@ public class OrderService {
         Order o=new Order();
         o.setAuctionItem(auction);
         o.setBuyer(buyer);
+        o.setSellerProfile(auction.getSellerProfile());
         o.setStatus(OrderStatus.AWAITING_PAYMENT);
         o.setAgreedPrice(auction.getCurrentPrice());
 
@@ -76,6 +77,7 @@ public class OrderService {
         Order o = new Order();
         o.setProductListing(listing);
         o.setSeller(listing.getSeller());
+        o.setSellerProfile(listing.getSellerProfile());
         o.setBuyer(buyer);
         o.setQuantity(quantity);
         o.setUnitPrice(unitPrice);

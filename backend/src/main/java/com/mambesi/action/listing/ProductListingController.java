@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import com.mambesi.action.order.Order;
 import com.mambesi.action.order.OrderService;
+import com.mambesi.action.seller.SellerProfile;
+import com.mambesi.action.seller.SellerProfileService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -21,10 +23,14 @@ public class ProductListingController {
 
     private final ProductListingRepository listings;
     private final OrderService orders;
+    private final SellerProfileService sellerProfiles;
 
-    public ProductListingController(ProductListingRepository listings, OrderService orders) {
+    public ProductListingController(ProductListingRepository listings,
+                                    OrderService orders,
+                                    SellerProfileService sellerProfiles) {
         this.listings = listings;
         this.orders = orders;
+        this.sellerProfiles = sellerProfiles;
     }
 
     public record CreateRequest(
@@ -101,6 +107,8 @@ public class ProductListingController {
 
         ProductListing listing = new ProductListing();
         listing.setSeller(seller);
+        listing.setSellerProfile(
+                sellerProfiles.ensureProfile(seller, SellerProfile.Type.INDIVIDUAL));
         listing.setTitle(request.title().trim());
         listing.setDescription(request.description().trim());
         listing.setCategory(request.category().trim());

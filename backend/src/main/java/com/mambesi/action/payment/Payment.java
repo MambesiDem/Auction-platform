@@ -1,6 +1,7 @@
 package com.mambesi.action.payment;
 
 import com.mambesi.action.auction.AuctionItem;
+import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.user.User;
 import jakarta.persistence.*;
 
@@ -42,6 +43,10 @@ public class Payment {
     @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seller_profile_id")
+    private SellerProfile sellerProfile;
+
     @Column(nullable = false, precision = 19, scale = 2)
     private java.math.BigDecimal totalAmount;
 
@@ -82,6 +87,9 @@ public class Payment {
 
     public User getSeller() { return seller; }
     public void setSeller(User seller) { this.seller = seller; }
+
+    public SellerProfile getSellerProfile() { return sellerProfile; }
+    public void setSellerProfile(SellerProfile sellerProfile) { this.sellerProfile = sellerProfile; }
 
     public double getTotalAmount() { return totalAmount == null ? 0.0 : totalAmount.doubleValue(); }
     public void setTotalAmount(double totalAmount) { this.totalAmount = com.mambesi.action.common.Money.value(totalAmount); }

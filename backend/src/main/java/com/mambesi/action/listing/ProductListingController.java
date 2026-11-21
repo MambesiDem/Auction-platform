@@ -11,6 +11,8 @@ import com.mambesi.action.order.Order;
 import com.mambesi.action.order.OrderService;
 import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.seller.SellerProfileService;
+import com.mambesi.action.seller.SellerAccess;
+import java.util.Set;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,13 +26,16 @@ public class ProductListingController {
     private final ProductListingRepository listings;
     private final OrderService orders;
     private final SellerProfileService sellerProfiles;
+    private final SellerAccess sellerAccess;
 
     public ProductListingController(ProductListingRepository listings,
                                     OrderService orders,
-                                    SellerProfileService sellerProfiles) {
+                                    SellerProfileService sellerProfiles,
+                                    SellerAccess sellerAccess) {
         this.listings = listings;
         this.orders = orders;
         this.sellerProfiles = sellerProfiles;
+        this.sellerAccess = sellerAccess;
     }
 
     public record CreateRequest(
@@ -88,7 +93,11 @@ public class ProductListingController {
         ProductListing listing = listings.findByIdForUpdate(id)
                 .orElseThrow(() -> new IllegalArgumentException("Listing not found."));
 
-        if (listing.getSeller().getId().equals(buyer.getId())) {
+        boolean ownListing = listing.getSellerProfile() != null
+                ? sellerAccess.isMember(buyer, listing.getSellerProfile().getId())
+                : listing.getSeller().getId().equals(buyer.getId());
+
+        if (ownListing) {
             throw new IllegalArgumentException("You cannot buy your own listing.");
         }
 
@@ -107,8 +116,9 @@ public class ProductListingController {
 
         ProductListing listing = new ProductListing();
         listing.setSeller(seller);
-        listing.setSellerProfile(
-                sellerProfiles.ensureProfile(seller, SellerProfile.Type.INDIVIDUAL));
+        SellerProfile profile = sellerProfiles.ensureProfile(seller, SellerProfile.Type.INDIVIDUAL);
+        sellerAccess.requireListingManager(seller, profile.getId());
+        listing.setSellerProfile(profile);
         listing.setTitle(request.title().trim());
         listing.setDescription(request.description().trim());
         listing.setCategory(request.category().trim());
@@ -150,7 +160,13 @@ public class ProductListingController {
                 )
         );
 
-        return listings.findBySellerId(seller.getId(), pageable)
+        Set<UUID> profileIds = sellerAccess.profileIds(seller);
+
+        if (profileIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        return listings.findBySellerProfileIdIn(profileIds, pageable)
                 .map(this::view);
     }
 
@@ -163,7 +179,9 @@ public class ProductListingController {
         User seller = (User) authentication.getPrincipal();
         ProductListing listing = listings.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Listing not found."));
-        if (!listing.getSeller().getId().equals(seller.getId())) {
+        if (listing.getSellerProfile() != null) {
+            sellerAccess.requireListingManager(seller, listing.getSellerProfile().getId());
+        } else if (!listing.getSeller().getId().equals(seller.getId())) {
             throw new IllegalArgumentException("You do not own this listing.");
         }
         if (listing.getStatus() == ProductListing.Status.PUBLISHED) {

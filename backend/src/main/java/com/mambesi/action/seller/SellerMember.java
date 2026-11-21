@@ -14,7 +14,24 @@ import java.util.UUID;
 )
 public class SellerMember {
 
-    public enum Role { OWNER, ADMINISTRATOR, STORE_MANAGER, SALES, VIEWER }
+    public enum Role {
+        OWNER(true, true),
+        ADMINISTRATOR(true, true),
+        STORE_MANAGER(true, true),
+        SALES(false, true),
+        VIEWER(false, false);
+
+        private final boolean manageListings;
+        private final boolean fulfil;
+
+        Role(boolean manageListings, boolean fulfil) {
+            this.manageListings = manageListings;
+            this.fulfil = fulfil;
+        }
+
+        public boolean canManageListings() { return manageListings; }
+        public boolean canFulfil() { return fulfil; }
+    }
 
     public enum Status { ACTIVE, REMOVED }
 

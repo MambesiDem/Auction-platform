@@ -2,17 +2,21 @@ package com.mambesi.action.bid;
 import com.mambesi.action.auction.*;
 import com.mambesi.action.user.*;
 import com.mambesi.action.common.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.*;
+import com.mambesi.action.seller.SellerAccess;
 @Service
 public class BidService {
     private final BidRepository bids;
     private final AuctionRepository auctions;
     private final UserRepository users;
     private final SimpMessagingTemplate messages;
+    @Autowired
+    private SellerAccess sellerAccess;
     public BidService(BidRepository bids,AuctionRepository auctions,
                       UserRepository users,SimpMessagingTemplate messages){
         this.bids=bids;
@@ -34,7 +38,10 @@ public class BidService {
         User buyer=users.findByEmail(email).orElseThrow(()->new IllegalArgumentException("User not found."));
         if(buyer.isBanned())
             throw new IllegalArgumentException("Your account is suspended.");
-        if(a.getOwner().getId().equals(buyer.getId()))
+        boolean sellsThis=a.getSellerProfile()!=null
+                ? sellerAccess.isMember(buyer,a.getSellerProfile().getId())
+                : a.getOwner().getId().equals(buyer.getId());
+        if(sellsThis)
             throw new IllegalArgumentException("You cannot bid on your own listing.");
 
         Optional<Bid> top=bids.findFirstByAuctionItemIdOrderByAmountDescTimestampAsc(id);

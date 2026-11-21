@@ -15,6 +15,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import java.util.*;
 import com.mambesi.action.seller.SellerProfile;
 import com.mambesi.action.seller.SellerProfileService;
+import com.mambesi.action.seller.SellerAccess;
 @Service
 public class AuctionService {
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
@@ -67,6 +68,7 @@ public class AuctionService {
         a.setOwner(user(owner));
         if(a.getSellerProfile()==null)
             a.setSellerProfile(sellerProfiles.ensureProfile(user(owner),SellerProfile.Type.INDIVIDUAL));
+        sellerAccess.requireListingManager(user(owner),a.getSellerProfile().getId());
         a.setActive(true);
         AuctionItem saved=auctions.save(a);
         AfterCommit.run(()->messages.convertAndSend("/topic/auction-updated",saved.getId().toString()));return saved;
@@ -78,7 +80,9 @@ public class AuctionService {
         return auctions.findOpenForPage(AppTime.now(),page(page,size));
     }
     public List<AuctionItem> getMyListings(String email,int page,int size){
-        return auctions.findByOwnerIdOrderByStartTimeDesc(user(email).getId(),page(page,size));
+        Set<UUID> profileIds=sellerAccess.profileIds(user(email));
+        if(profileIds.isEmpty())return List.of();
+        return auctions.findBySellerProfileIdInOrderByStartTimeDesc(profileIds,page(page,size));
     }
     public List<AuctionItem> getMyWins(String email,int page,int size){
         return auctions.findByWinnerIdOrderByEndTimeDesc(user(email).getId(),page(page,size));
@@ -200,6 +204,8 @@ public class AuctionService {
     private OrderRepository orderRepository;
     @Autowired
     private SellerProfileService sellerProfiles;
+    @Autowired
+    private SellerAccess sellerAccess;
     private OrderRepository orderRepository(){return orderRepository;}
     @Transactional public RunnerUpOffer respondToOffer(UUID offerId,String buyer,boolean accept){
         RunnerUpOffer reference=offers.findById(offerId)
@@ -255,8 +261,13 @@ public class AuctionService {
                 .orElseThrow(()->new IllegalArgumentException("User not found."));
     }
     private void requireOwner(AuctionItem a,String email){
-        if(!a.getOwner().getEmail().equals(email))
-            throw new SecurityException("Only the seller can do this.");
+        User actor=user(email);
+        if(a.getSellerProfile()!=null){
+            sellerAccess.requireListingManager(actor,a.getSellerProfile().getId());
+            return;
+        }
+        // Rows written before seller profiles existed fall back to the original owner check.
+        if(!a.getOwner().getEmail().equals(email)) throw new SecurityException("Only the seller can do this.");
     }
     private PageRequest page(int number,int size){
         if(number<0 || size<1 || size>100)

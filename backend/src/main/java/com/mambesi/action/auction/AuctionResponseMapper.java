@@ -14,6 +14,7 @@ import com.mambesi.action.user.User;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.mambesi.action.seller.SellerAccess;
 
 import java.util.*;
 import java.util.function.Function;
@@ -24,6 +25,7 @@ public class AuctionResponseMapper {
 
     @Autowired
     private AuctionRepository auctions;
+    @Autowired private SellerAccess access;
 
     private final BidRepository bids;
     private final OrderRepository orders;
@@ -47,6 +49,7 @@ public class AuctionResponseMapper {
         }
 
         UUID userId=viewer==null?null:viewer.getId();
+        Set<UUID> sellerProfileIds=access.profileIds(viewer);
         var stats=bids.summarizeForAuctions(ids,userId).stream()
                 .collect(Collectors.toMap(BidRepository.AuctionBidSummary::getAuctionId,Function.identity()));
 
@@ -62,8 +65,9 @@ public class AuctionResponseMapper {
 
         List<AuctionResponse> result=new ArrayList<>();
         for(AuctionItem a:items){
-            boolean owner=viewer!=null && a.getOwner()
-                    .getId().equals(userId),admin=viewer!=null && viewer.getRole()==Role.ADMIN;
+            boolean owner=viewer!=null && (a.getSellerProfile()!=null
+                    ? sellerProfileIds.contains(a.getSellerProfile().getId())
+                    : a.getOwner().getId().equals(userId)),admin=viewer!=null && viewer.getRole()==Role.ADMIN;
 
             String winner=a.getWinner()!=null && (owner||admin||a.getWinner()
                     .getId().equals(userId))?a.getWinner().getEmail():null;

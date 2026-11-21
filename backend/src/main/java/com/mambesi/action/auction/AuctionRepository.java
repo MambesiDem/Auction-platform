@@ -34,4 +34,6 @@ public interface AuctionRepository extends JpaRepository<AuctionItem,UUID> {
     List<UUID> findOffersToAdvance(@Param("now")LocalDateTime now,Pageable page);
     @Query("select max(b.amount) from Bid b where b.auctionItem.id=:auctionId and b.bidder.id=:userId")
     java.math.BigDecimal findHighestBidByUserAndAuction(@Param("auctionId")UUID auctionId,@Param("userId")UUID userId);
+    @EntityGraph(attributePaths={"owner","winner"})
+    List<AuctionItem> findBySellerProfileIdInOrderByStartTimeDesc(Collection<UUID> ids,Pageable page);
 }

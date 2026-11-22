@@ -171,8 +171,8 @@ public class DeliveryController {
         String viewer = getAuthenticatedEmail();
 
         // Only the seller receives the pickup code, after driver acceptance.
-        if (viewer.equals(delivery.getSeller().getEmail())
-                && delivery.getStatus() == DeliveryStatus.ACCEPTED) {
+        if (delivery.getStatus() == DeliveryStatus.ACCEPTED
+                && deliveryService.isSellerSide(delivery, viewer)) {
             response.setPickupCode(delivery.getPickupCode());
         }
 

@@ -8,6 +8,7 @@ import com.mambesi.action.notification.EmailService;
 import com.mambesi.action.payment.dto.PaymentResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.mambesi.action.seller.SellerAccess;
 
 import java.util.*;
 
@@ -16,6 +17,9 @@ public class PaymentService {
 
     @org.springframework.beans.factory.annotation.Autowired
     private com.mambesi.action.user.UserRepository users;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private SellerAccess sellerAccess;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -693,9 +697,12 @@ public class PaymentService {
     }
 
     public List<Payment> getPaymentsForSeller(String email) {
-        return payments.findBySellerId(
-                users.findByEmail(email).orElseThrow().getId()
-        );
+        Set<UUID> profileIds = sellerAccess.profileIds(
+                users.findByEmail(email).orElseThrow());
+
+        return profileIds.isEmpty()
+                ? List.of()
+                : payments.findBySellerProfileIdIn(profileIds);
     }
 
     public Payment getPaymentByAuctionId(UUID id, String buyer) {

@@ -15,6 +15,7 @@ import com.mambesi.action.user.Role;
 import com.mambesi.action.user.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.mambesi.action.seller.SellerAccess;
 
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,9 @@ public class CaseService {
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private SellerAccess sellerAccess;
 
     private final OrderCaseRepository cases;
     private final CaseEventRepository events;
@@ -312,11 +316,8 @@ public class CaseService {
         OrderCase orderCase = lockedCase(id);
         User seller = orderCase.getOrder().getSeller();
 
-        if (user.getRole() != Role.ADMIN
-                && (seller == null || !seller.getId().equals(user.getId()))) {
-            throw new SecurityException(
-                    "Only the seller or support can record return receipt."
-            );
+        if (user.getRole() != Role.ADMIN && !actsForSeller(orderCase.getOrder(), user)) {
+            throw new SecurityException("Only the seller or support can record return receipt.");
         }
 
         if (orderCase.getStatus() != OrderCase.Status.RETURN_IN_TRANSIT) {
@@ -440,6 +441,18 @@ public class CaseService {
         return orderCase;
     }
 
+    // True when the user may act for the seller on this order. Orders without a profile use the saved seller.
+    private boolean actsForSeller(Order order, User user) {
+        if (order.getSellerProfile() != null) {
+            return sellerAccess.membership(user, order.getSellerProfile().getId())
+                    .map(member -> member.getRole().canFulfil())
+                    .orElse(false);
+        }
+
+        User seller = order.getSeller();
+        return seller != null && seller.getId().equals(user.getId());
+    }
+
     public void requireOrderParticipant(Order order, User user) {
         if (user.getRole() == Role.ADMIN) {
             return;
@@ -449,9 +462,7 @@ public class CaseService {
             return;
         }
 
-        User seller = order.getSeller();
-
-        if (seller != null && seller.getId().equals(user.getId())) {
+        if (actsForSeller(order, user)) {
             return;
         }
 

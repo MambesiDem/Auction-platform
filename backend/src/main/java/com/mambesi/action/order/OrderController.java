@@ -8,11 +8,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.mambesi.action.seller.SellerAccess;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -21,6 +24,9 @@ public class OrderController {
     private final OrderRepository orders;
     private final OrderEventRepository events;
     private final CaseService access;
+
+    @Autowired
+    private SellerAccess sellerAccess;
 
     public OrderController(
             OrderRepository orders,
@@ -56,9 +62,12 @@ public class OrderController {
 
         List<Order> result = switch (user.getRole()) {
             case BUYER -> orders.findByBuyerId(user.getId());
-            case SELLER -> orders.findBySellerEmailOrderByCreatedAtDesc(
-                    user.getEmail()
-            );
+            case SELLER -> {
+                Set<UUID> profileIds = sellerAccess.profileIds(user);
+                yield profileIds.isEmpty()
+                        ? List.<Order>of()
+                        : orders.findBySellerProfileIdInOrderByCreatedAtDesc(profileIds);
+            }
             case ADMIN -> orders.findAll();
             default -> throw new SecurityException(
                     "Buyer or seller access is required."

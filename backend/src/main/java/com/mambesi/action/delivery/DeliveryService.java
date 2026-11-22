@@ -8,6 +8,8 @@ import com.mambesi.action.common.*;
 import com.mambesi.action.notification.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.mambesi.action.seller.SellerAccess;
+import com.mambesi.action.seller.SellerProfile;
 
 import java.util.*;
 
@@ -19,6 +21,9 @@ public class DeliveryService {
 
     @org.springframework.beans.factory.annotation.Autowired
     private OrderEventRepository audit;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private SellerAccess sellerAccess;
 
     private final DeliveryRepository deliveries;
     private final AuctionRepository auctions;
@@ -53,11 +58,7 @@ public class DeliveryService {
     public Delivery createDelivery(UUID id, String seller, String evidence) {
         AuctionItem auction = lock(id);
 
-        if (!auction.getOwner().getEmail().equals(seller)) {
-            throw new SecurityException(
-                    "Only the seller can book collection."
-            );
-        }
+        requireFulfilment(auction.getSellerProfile(), auction.getOwner(), seller);
 
         Order order = orders.getByAuctionId(id);
 
@@ -127,10 +128,7 @@ public class DeliveryService {
         );
         entityManager.refresh(order);
 
-        if (order.getSeller() == null
-                || !order.getSeller().getEmail().equals(seller)) {
-            throw new SecurityException("Only the seller can book collection.");
-        }
+        requireFulfilment(order.getSellerProfile(), order.getSeller(), seller);
 
         Payment payment = payments
                 .findFirstByOrderIdOrderByCreatedAtDescIdDesc(order.getId())
@@ -471,7 +469,11 @@ public class DeliveryService {
     }
 
     public List<Delivery> getMySales(String email) {
-        return deliveries.findBySellerId(user(email).getId());
+        Set<UUID> profileIds = sellerAccess.profileIds(user(email));
+
+        return profileIds.isEmpty()
+                ? List.of()
+                : deliveries.findBySellerProfileIdIn(profileIds);
     }
 
     public List<Delivery> getAllDeliveries() {
@@ -487,6 +489,35 @@ public class DeliveryService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Auction not found."
                 ));
+    }
+
+    // Seller-side actions need permission to fulfil orders for the seller profile.
+// Rows without a profile fall back to the original owner check.
+    private void requireFulfilment(SellerProfile profile, User legacyOwner, String email) {
+        User actor = user(email);
+
+        if (profile != null) {
+            sellerAccess.requireFulfiller(actor, profile.getId());
+            return;
+        }
+
+        if (legacyOwner == null || !legacyOwner.getId().equals(actor.getId())) {
+            throw new SecurityException("Only the seller can book collection.");
+        }
+    }
+
+    /** True when the viewer may act for the seller on this delivery. Decides who sees the pickup code. */
+    public boolean isSellerSide(Delivery delivery, String email) {
+        User viewer = user(email);
+
+        if (delivery.getSellerProfile() != null) {
+            return sellerAccess.membership(viewer, delivery.getSellerProfile().getId())
+                    .map(member -> member.getRole().canFulfil())
+                    .orElse(false);
+        }
+
+        return delivery.getSeller() != null
+                && delivery.getSeller().getId().equals(viewer.getId());
     }
 
     private Delivery lockedDelivery(UUID id) {

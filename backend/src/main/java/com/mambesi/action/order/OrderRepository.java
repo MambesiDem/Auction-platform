@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Collection;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -19,6 +20,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Optional<Order> findFirstByAuctionItemIdOrderByCreatedAtDescIdDesc(
             UUID auctionId
     );
+
+    @EntityGraph(attributePaths = {
+            "buyer", "seller", "auctionItem", "auctionItem.owner"
+    })
+    List<Order> findBySellerProfileIdInOrderByCreatedAtDesc(Collection<UUID> profileIds);
 
     default Optional<Order> findByAuctionItemId(UUID id) {
         return findFirstByAuctionItemIdOrderByCreatedAtDescIdDesc(id);

@@ -15,22 +15,25 @@ import java.util.UUID;
 public class SellerMember {
 
     public enum Role {
-        OWNER(true, true),
-        ADMINISTRATOR(true, true),
-        STORE_MANAGER(true, true),
-        SALES(false, true),
-        VIEWER(false, false);
+        OWNER(true, true, true),
+        ADMINISTRATOR(true, true, true),
+        STORE_MANAGER(true, true, false),
+        SALES(false, true, false),
+        VIEWER(false, false, false);
 
         private final boolean manageListings;
         private final boolean fulfil;
+        private final boolean editProfile;
 
-        Role(boolean manageListings, boolean fulfil) {
+        Role(boolean manageListings, boolean fulfil, boolean editProfile) {
             this.manageListings = manageListings;
             this.fulfil = fulfil;
+            this.editProfile = editProfile;
         }
 
         public boolean canManageListings() { return manageListings; }
         public boolean canFulfil() { return fulfil; }
+        public boolean canEditProfile() { return editProfile; }
     }
 
     public enum Status { ACTIVE, REMOVED }

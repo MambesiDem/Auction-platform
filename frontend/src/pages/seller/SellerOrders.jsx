@@ -3,7 +3,6 @@ import OrderTools from '../../components/OrderTools';
 import { getAllPages } from '../../api/transactions';
 import { useEffect, useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
@@ -102,7 +101,6 @@ function nextStep(status) {
 }
 
 export default function SellerOrders() {
-    const { user } = useAuth();
 
     const [orderRecords, setOrderRecords] = useState([]);
     const [deliveries, setDeliveries] = useState([]);
@@ -131,17 +129,13 @@ export default function SellerOrders() {
             setOrderRecords(recordsRes.data);
             setPayments(paymentsRes.data);
 
-            const mine = auctionsRes.data.filter(
-                auction => auction.ownerEmail === user?.email
-            );
-
-            setAuctions(mine);
+            setAuctions(auctionsRes.data);
         } catch (err) {
             console.error('Failed to load orders', err);
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, []);
 
     useAuctionSync(fetchData);
 

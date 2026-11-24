@@ -28,6 +28,22 @@ public class UserController {
 
     @PostMapping("/register")
     public UserResponse register(@Valid @RequestBody UserRequest request) {
+        // Check the seller details first, so a bad request leaves no half-created account.
+        SellerProfile.Type sellerType = null;
+        String businessName = null;
+
+        if (request.getRole() == Role.SELLER) {
+            sellerType = sellerProfiles.parseType(request.getSellerType());
+            businessName = request.getBusinessName() == null
+                    ? null
+                    : request.getBusinessName().trim();
+
+            if (sellerType != SellerProfile.Type.INDIVIDUAL
+                    && (businessName == null || businessName.length() < 2)) {
+                throw new IllegalArgumentException("Enter your business or trading name.");
+            }
+        }
+
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
@@ -36,9 +52,12 @@ public class UserController {
 
         User savedUser = userService.registerUser(user);
 
-        // Every seller account gets a seller profile. The type choice at sign-up comes in change 1D.
         if (savedUser.getRole() == Role.SELLER) {
-            sellerProfiles.ensureProfile(savedUser, SellerProfile.Type.INDIVIDUAL);
+            sellerProfiles.ensureProfile(
+                    savedUser,
+                    sellerType,
+                    sellerType == SellerProfile.Type.INDIVIDUAL ? null : businessName
+            );
         }
 
         return new UserResponse(

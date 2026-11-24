@@ -19,6 +19,15 @@ public class UserRequest {
     @NotNull(message = "Role is required")
     private Role role;
 
+    // Used only when the role is SELLER. Values: INDIVIDUAL, INFORMAL_BUSINESS, REGISTERED_BUSINESS.
+    private String sellerType;
+
+    @Size(max = 150)
+    private String businessName;
+
+    public String getSellerType() { return sellerType; }
+    public String getBusinessName() { return businessName; }
+
     public String getFullName() {
         return fullName;
     }

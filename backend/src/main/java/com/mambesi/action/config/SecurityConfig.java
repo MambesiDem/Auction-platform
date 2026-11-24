@@ -91,6 +91,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/seller-profiles/*").hasAuthority("SELLER")
 
+                        .requestMatchers("/api/seller-profiles/*/locations",
+                                "/api/seller-profiles/*/locations/**").hasAuthority("SELLER")
+                        .requestMatchers("/api/addresses",
+                                "/api/addresses/**").hasAnyAuthority("BUYER", "SELLER")
+
                         .anyRequest().denyAll())
                 .addFilterBefore(filter,UsernamePasswordAuthenticationFilter.class).build();
     }

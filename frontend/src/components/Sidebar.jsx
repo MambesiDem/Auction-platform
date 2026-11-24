@@ -13,6 +13,7 @@ const buyerLinks = [
     { to: '/buyer/searches', icon: '🔖', label: 'Saved Searches' },
     { to: '/buyer/payments', icon: '💳', label: 'Payments' },
     { to: '/buyer/profile', icon: '👤', label: 'Profile' },
+    { to: '/buyer/addresses', icon: '📍', label: 'Addresses' },
     { to: '/buyer/settings', icon: '⚙️', label: 'Settings' },
 ];
 

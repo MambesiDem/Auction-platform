@@ -5,6 +5,7 @@ import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
 import styles from './SellerProfilePage.module.css';
+import SellerLocations from '../../components/SellerLocations';
 
 const SELLER_TYPES = [
     {
@@ -237,12 +238,14 @@ export default function SellerProfilePage() {
                         </div>
                     ) : (
                         profiles.map(profile => (
-                            <ProfileCard
-                                key={profile.id}
-                                profile={profile}
-                                onSaved={handleSaved}
-                                onNotice={setNotice}
-                            />
+                            <div key={profile.id}>
+                                <ProfileCard
+                                    profile={profile}
+                                    onSaved={handleSaved}
+                                    onNotice={setNotice}
+                                />
+                                <SellerLocations profile={profile} />
+                            </div>
                         ))
                     )}
 
@@ -250,7 +253,7 @@ export default function SellerProfilePage() {
                         <h3 className={styles.soonTitle}>Coming to your profile</h3>
                         <ul className={styles.soonList}>
                             <li>Identity and business verification, with badges buyers can see</li>
-                            <li>Store locations and branches, with their own pickup addresses</li>
+                            <li>A map to pick each location's position, so buyers and drivers can find you</li>
                             <li>Team members, so staff can manage listings and orders</li>
                             <li>Ratings and reviews from buyers</li>
                         </ul>

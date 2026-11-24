@@ -1,0 +1,182 @@
+/* Shared by the address form, the seller's store locations and the buyer address book. */
+
+.layout { display: flex; min-height: 100vh; background: var(--bg); }
+
+.main {
+    flex: 1;
+    margin-left: 220px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.content { flex: 1; padding: 24px; max-width: 800px; width: 100%; margin: 0 auto; }
+.loading { padding: 32px; text-align: center; color: var(--text-secondary); font-size: 14px; }
+.pageHeader { margin-bottom: 20px; }
+.pageTitle { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.pageSubtitle { font-size: 13px; color: var(--text-secondary); }
+
+.card {
+    background: var(--white);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.cardHead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.cardTitle { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.cardSub { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+.primaryBtn {
+    background: var(--navy);
+    color: white;
+    border: none;
+    padding: 9px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.primaryBtn:hover:not(:disabled) { background: var(--navy-light); }
+.primaryBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.ghostBtn {
+    background: var(--white);
+    color: var(--navy);
+    border: 0.5px solid var(--border);
+    padding: 9px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.ghostBtn:hover:not(:disabled) { border-color: var(--navy); }
+.ghostBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.smallBtn {
+    background: none;
+    border: 0.5px solid var(--border);
+    border-radius: 14px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.smallBtn:hover:not(:disabled) { border-color: var(--navy); color: var(--navy); }
+.smallBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dangerBtn:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+
+.notice {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+.noticeSuccess { background: var(--green-light); border: 0.5px solid #A7F3D0; color: var(--green-dark); }
+.noticeError { background: var(--red-light); border: 0.5px solid #FECACA; color: var(--red); }
+.noticeClose { background: none; border: none; cursor: pointer; font-size: 15px; line-height: 1; color: inherit; }
+
+.empty { text-align: center; padding: 28px 12px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+
+/* Saved items */
+.list { display: flex; flex-direction: column; gap: 10px; }
+
+.item {
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+}
+
+.itemTop { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.itemName { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+
+.chip {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    color: var(--text-secondary);
+}
+
+.chipNavy { background: var(--navy); border-color: var(--navy); color: white; }
+.chipGreen { background: var(--green-light); border-color: #A7F3D0; color: var(--green-dark); }
+.itemText { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.itemMeta { font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-top: 4px; }
+.itemActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* Forms */
+.form {
+    border-top: 0.5px solid var(--border);
+    margin-top: 18px;
+    padding-top: 18px;
+}
+
+.formTitle { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 14px; }
+.fieldGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.fieldFull { grid-column: 1 / -1; }
+.label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+
+.input, .select, .textarea {
+    width: 100%;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--white);
+    outline: none;
+}
+
+.input, .select { height: 40px; }
+.textarea { min-height: 64px; padding: 10px 12px; resize: vertical; line-height: 1.5; }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--navy); }
+.input:disabled, .select:disabled, .textarea:disabled { background: var(--bg); color: var(--text-muted); cursor: not-allowed; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-primary); cursor: pointer; margin: 4px 0 14px; }
+
+.pinBox {
+    grid-column: 1 / -1;
+    border: 0.5px dashed var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+}
+
+.pinBox summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.pinGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; }
+
+.formError {
+    background: var(--red-light);
+    border: 0.5px solid #FECACA;
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 12px;
+}
+
+.formActions { display: flex; justify-content: flex-end; gap: 10px; }
+
+@media (max-width: 768px) {
+    .main { margin-left: 0; }
+    .content { padding: 16px; padding-bottom: 80px; }
+    .card { padding: 18px; }
+    .fieldGrid, .pinGrid { grid-template-columns: 1fr; }
+}

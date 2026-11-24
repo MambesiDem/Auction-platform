@@ -3,7 +3,6 @@ import { getAllPages } from '../../api/transactions';
 import { useAuctionSync, auctionState, auctionLabel, toSaLocalDateTime } from '../../utils/auctionLifecycle';
 import { useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
 import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
 import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
@@ -25,7 +24,6 @@ const EMPTY_FORM = {
 const TABS = ['All', 'Active', 'Closed', 'No Winner'];
 
 export default function SellerListings() {
-    const { user } = useAuth();
     const [auctions, setAuctions] = useState([]);
     const [payments, setPayments] = useState([]);
     const [deliveries, setDeliveries] = useState([]);
@@ -45,7 +43,7 @@ export default function SellerListings() {
                 axiosInstance.get('/api/payments/my-earnings'),
                 axiosInstance.get('/api/deliveries/my-sales'),
             ]);
-            const mine = auctionsRes.data.filter(a => a.ownerEmail === user?.email);
+            const mine = auctionsRes.data;
             setAuctions(mine);
             setPayments(paymentsRes.data);
             setDeliveries(deliveriesRes.data);
@@ -54,7 +52,7 @@ export default function SellerListings() {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, []);
 
     const clock = useAuctionSync(fetchData, true);
 

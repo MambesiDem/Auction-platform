@@ -24,7 +24,7 @@ export default function SellerHome() {
                 axiosInstance.get('/api/deliveries/my-sales'),
                 axiosInstance.get('/api/payments/my-earnings'),
             ]);
-            const mine = auctionsRes.data.filter(a => a.ownerEmail === user?.email);
+            const mine = auctionsRes.data;
             setAuctions(mine);
             setDeliveries(deliveriesRes.data);
             setPayments(paymentsRes.data);
@@ -33,7 +33,7 @@ export default function SellerHome() {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, []);
 
     const clock = useAuctionSync(fetchData, true);
 

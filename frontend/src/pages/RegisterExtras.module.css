@@ -1,0 +1,63 @@
+.typeBlock {
+    margin: 4px 0 16px;
+}
+
+.typeLabel {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.typeGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.typeOption {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 0.5px solid #d1d5db;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #ffffff;
+}
+
+.typeOption:hover {
+    border-color: #1A2B4A;
+}
+
+.typeOptionActive {
+    border-color: #1A2B4A;
+    background: #F0F4F8;
+}
+
+.typeOption input {
+    margin-top: 3px;
+}
+
+.typeTitle {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.typeText {
+    display: block;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+    line-height: 1.4;
+}

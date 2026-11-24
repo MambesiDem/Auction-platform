@@ -88,6 +88,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/seller-profiles/mine").hasAuthority("SELLER")
 
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/seller-profiles/*").hasAuthority("SELLER")
+
                         .anyRequest().denyAll())
                 .addFilterBefore(filter,UsernamePasswordAuthenticationFilter.class).build();
     }

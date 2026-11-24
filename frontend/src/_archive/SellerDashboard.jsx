@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
-import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
-import Navbar from '../../components/Navbar';
-import StatCard from '../../components/StatCard';
+import axiosInstance from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
+import Navbar from '../components/Navbar';
+import StatCard from '../components/StatCard';
 import styles from './SellerDashboard.module.css';
-import { uploadToCloudinary } from '../../utils/uploadToCloudinary';
+import { uploadToCloudinary } from '../utils/uploadToCloudinary';
 
 const EMPTY_FORM = {
     title: '',

@@ -37,9 +37,14 @@ public class SellerProfileService {
         this.users = users;
     }
 
-    /** Gives the user a profile they own, unless they already belong to one. Safe to call twice. */
     @Transactional
     public SellerProfile ensureProfile(User user, SellerProfile.Type type) {
+        return ensureProfile(user, type, null);
+    }
+
+    /** Gives the user a profile they own, unless they already belong to one. Safe to call twice. */
+    @Transactional
+    public SellerProfile ensureProfile(User user, SellerProfile.Type type, String displayName) {
         List<SellerMember> existing = members.findByUserIdAndStatusOrderByCreatedAtAsc(
                 user.getId(), SellerMember.Status.ACTIVE);
 
@@ -47,10 +52,14 @@ public class SellerProfileService {
             return existing.get(0).getSellerProfile();
         }
 
+        String name = displayName == null || displayName.isBlank()
+                ? user.getFullName()
+                : displayName.trim();
+
         SellerProfile profile = new SellerProfile();
         profile.setSellerType(type == null ? SellerProfile.Type.INDIVIDUAL : type);
-        profile.setDisplayName(user.getFullName());
-        profile.setSlug(uniqueSlug(user.getFullName()));
+        profile.setDisplayName(name);
+        profile.setSlug(uniqueSlug(name));
         profile = profiles.save(profile);
 
         members.save(new SellerMember(
@@ -88,6 +97,59 @@ public class SellerProfileService {
                     );
                 })
                 .toList();
+    }
+
+    /** Changes the public name and seller type. Owners and administrators only. */
+    @Transactional
+    public ProfileView update(User user, UUID profileId, String displayName, String sellerType) {
+        SellerMember member = members
+                .findByUserIdAndSellerProfileIdAndStatus(
+                        user.getId(), profileId, SellerMember.Status.ACTIVE)
+                .orElseThrow(() -> new SecurityException(
+                        "You do not have access to this seller profile."));
+
+        if (!member.getRole().canEditProfile()) {
+            throw new SecurityException(
+                    "Only an owner or administrator can edit this profile.");
+        }
+
+        String name = displayName == null ? "" : displayName.trim();
+
+        if (name.length() < 2 || name.length() > 150) {
+            throw new IllegalArgumentException(
+                    "Enter a name between 2 and 150 characters.");
+        }
+
+        SellerProfile.Type type = parseType(sellerType);
+
+        SellerProfile profile = member.getSellerProfile();
+        profile.setDisplayName(name);
+        profile.setSellerType(type);
+        profiles.save(profile);
+
+        return new ProfileView(
+                profile.getId(),
+                profile.getDisplayName(),
+                profile.getSlug(),
+                profile.getSellerType().name(),
+                profile.getStatus().name(),
+                profile.getVerificationLevel(),
+                member.getRole().name()
+        );
+    }
+
+    /** Reads a seller type sent by a client. A missing value means an individual seller. */
+    public SellerProfile.Type parseType(String value) {
+        if (value == null || value.isBlank()) {
+            return SellerProfile.Type.INDIVIDUAL;
+        }
+
+        try {
+            return SellerProfile.Type.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Choose how you sell: individual, small or informal business, or registered business.");
+        }
     }
 
     private String uniqueSlug(String name) {

@@ -2,14 +2,12 @@ import { useAuctionSync } from '../../utils/auctionLifecycle';
 import { getAllPages } from '../../api/transactions';
 import { useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
-import { useAuth } from '../../context/AuthContext';
 import Sidebar from '../../components/Sidebar';
 import BottomNav from '../../components/BottomNav';
 import TopBar from '../../components/TopBar';
 import styles from './SellerAnalytics.module.css';
 
 export default function SellerAnalytics() {
-    const { user } = useAuth();
     const [auctions, setAuctions] = useState([]);
     const [payments, setPayments] = useState([]);
     const [deliveries, setDeliveries] = useState([]);
@@ -23,7 +21,7 @@ export default function SellerAnalytics() {
                 axiosInstance.get('/api/payments/my-earnings'),
                 axiosInstance.get('/api/deliveries/my-sales'),
             ]);
-            const mine = auctionsRes.data.filter(a => a.ownerEmail === user?.email);
+            const mine = auctionsRes.data;
             setAuctions(mine);
             setPayments(paymentsRes.data);
             setDeliveries(deliveriesRes.data);
@@ -32,7 +30,7 @@ export default function SellerAnalytics() {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, []);
 
     useAuctionSync(fetchData);
 

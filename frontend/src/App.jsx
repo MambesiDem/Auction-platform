@@ -24,6 +24,7 @@ import DriverJobs from './pages/driver/DriverJobs';
 import DriverDeliveries from './pages/driver/DriverDeliveries';
 import DriverSoon from './pages/driver/DriverSoon';
 import SellerProfilePage from './pages/seller/SellerProfilePage';
+import BuyerAddresses from './pages/buyer/BuyerAddresses';
 
 // const BuyerDashboard = lazy(() => import('./pages/buyer/BuyerDashboard'));
 //const SellerDashboard = lazy(() => import('./pages/seller/SellerDashboard'));
@@ -102,6 +103,11 @@ export default function App() {
                         <Route path="/buyer/searches" element={
                             <ProtectedRoute allowedRoles={['BUYER']}>
                                 <BuyerHome />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/buyer/addresses" element={
+                            <ProtectedRoute allowedRoles={['BUYER']}>
+                                <BuyerAddresses />
                             </ProtectedRoute>
                         } />
 
